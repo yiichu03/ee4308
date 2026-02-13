@@ -55,11 +55,65 @@ namespace ee4308::turtle
         // get goal pose (contains the "clicked" goal rotation and position)
         geometry_msgs::msg::PoseStamped goal_pose = global_plan_.poses.back();
 
-        // get lookahead?
-        geometry_msgs::msg::PoseStamped lookahead_pose = goal_pose;
+        const double rbt_x = rbt_pose.pose.position.x;
+        const double rbt_y = rbt_pose.pose.position.y;
 
-        double linear_vel = 0 * (lookahead_pose.pose.position.x - rbt_pose.pose.position.x);
-        double angular_vel = 0 * ee4308::getYawFromQuaternion(goal_pose.pose.orientation);
+        // stop when close enough to goal
+        const double goal_dist = std::hypot(
+            goal_pose.pose.position.x - rbt_x,
+            goal_pose.pose.position.y - rbt_y);
+        if (goal_dist < xy_goal_thres_)
+            return writeCmdVel(0, 0);
+
+        // find closest point on plan
+        std::size_t closest_idx = 0;
+        double min_dist = std::hypot(
+            global_plan_.poses[0].pose.position.x - rbt_x,
+            global_plan_.poses[0].pose.position.y - rbt_y);
+        for (std::size_t i = 1; i < global_plan_.poses.size(); ++i)
+        {
+            const double dist = std::hypot(
+                global_plan_.poses[i].pose.position.x - rbt_x,
+                global_plan_.poses[i].pose.position.y - rbt_y);
+            if (dist < min_dist)
+            {
+                min_dist = dist;
+                closest_idx = i;
+            }
+        }
+
+        // find first lookahead point at least desired_lookahead_dist_ away
+        geometry_msgs::msg::PoseStamped lookahead_pose = goal_pose;
+        for (std::size_t i = closest_idx; i < global_plan_.poses.size(); ++i)
+        {
+            const double dist = std::hypot(
+                global_plan_.poses[i].pose.position.x - rbt_x,
+                global_plan_.poses[i].pose.position.y - rbt_y);
+            if (dist >= desired_lookahead_dist_)
+            {
+                lookahead_pose = global_plan_.poses[i];
+                break;
+            }
+        }
+
+        // transform lookahead point to robot frame
+        const double rbt_yaw = ee4308::getYawFromQuaternion(rbt_pose.pose.orientation);
+        const double dx = lookahead_pose.pose.position.x - rbt_x;
+        const double dy = lookahead_pose.pose.position.y - rbt_y;
+        const double x_rbt = dx * std::cos(rbt_yaw) + dy * std::sin(rbt_yaw);
+        const double y_rbt = -dx * std::sin(rbt_yaw) + dy * std::cos(rbt_yaw);
+
+        // pure pursuit curvature and command
+        const double L2 = x_rbt * x_rbt + y_rbt * y_rbt;
+        if (L2 <= ee4308::THRES)
+            return writeCmdVel(0, 0);
+
+        const double curvature = (2.0 * y_rbt) / L2;
+        double linear_vel = desired_linear_vel_;
+        double angular_vel = linear_vel * curvature;
+
+        linear_vel = std::clamp(linear_vel, 0.0, max_linear_vel_);
+        angular_vel = std::clamp(angular_vel, -max_angular_vel_, max_angular_vel_);
 
         return writeCmdVel(linear_vel, angular_vel);
     }
