@@ -120,6 +120,26 @@ cd /ws/ee4308
 2. 等它结束
 3. 再运行 `./proj2_sim_log.sh`
 
+如果你想批量扫描参数，而不是手动一次次改 `proj2.yaml`，可以用：
+
+```bash
+cd /ws/ee4308
+./sweep_lab2_params.sh 20
+./analyze_lab2_logs.sh log/lab2/sweep_<timestamp>
+```
+
+说明：
+
+- `./sweep_lab2_params.sh 20`
+  - 表示每组参数跑 20 秒
+  - 当前默认会扫描一组粗网格的 `var_imu_z` 和 `var_sonar`
+  - 每组运行日志都会写到 `log/lab2/sweep_<timestamp>/`
+
+- `./analyze_lab2_logs.sh <日志目录>`
+  - 会从日志里提取 `z` 轴相关指标
+  - 把结果写到 `tmp/lab2_analysis/`
+  - 主要看 `score` 越小越好
+
 ## 调参前先固定这几件事
 
 调参时，最怕的是一次同时改太多东西。先固定下面几件事：

@@ -109,6 +109,24 @@ source /opt/ros/jazzy/setup.bash
 如果你在同一个终端里运行 `./proj2_sim_log.sh`，这个终端会被仿真占住，直到你按 `Ctrl+C` 停止。
 如果你想一边跑仿真一边看别的命令，请再开一个终端，或者重新 `docker exec -it ee4308_jazzy_proj2 bash` 进入一个新的容器终端。
 
+如果你想批量扫描 `var_imu_z` / `var_sonar`，可以用：
+
+```bash
+cd /ws/ee4308
+./sweep_lab2_params.sh 20
+./analyze_lab2_logs.sh log/lab2/sweep_<timestamp>
+```
+
+其中：
+
+- `./sweep_lab2_params.sh 20`
+  - 每组参数运行 20 秒
+  - 自动把每组日志写进 `log/lab2/sweep_<timestamp>/`
+
+- `./analyze_lab2_logs.sh ...`
+  - 从日志提取 `Pose.z`、`Twist.z`、`ErrPose.z`、`ErrTwis.z`、`Pose.z-Sonar`
+  - 汇总到 `tmp/lab2_analysis/`
+
 ## 工作区目录
 
 下面的命令默认你在本仓库根目录执行：
