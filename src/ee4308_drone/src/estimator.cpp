@@ -146,8 +146,8 @@ namespace ee4308::drone
         // Pz_
         // .transpose()
         // =========
-        
-        Ysonar_ = msg.ranges[0];
+
+        Ysonar_ = msg.ranges.empty() ? NAN : msg.ranges[0];
 
         // ==== [FOR LAB 2 ONLY] ==== 
         // The following is necessary so that the covariance bubble in RViz does not fill up the screen.
@@ -164,6 +164,15 @@ namespace ee4308::drone
         }
 
         // if in range, write to Ysonar_, and do the KF correction.
+        Eigen::RowVector2d H;
+        H << 1.0, 0.0;
+
+        double innovation = Ysonar_ - Xz_(0);
+        double innovation_covariance = (H * Pz_ * H.transpose())(0, 0) + var_sonar_;
+        Eigen::Vector2d K = Pz_ * H.transpose() / innovation_covariance;
+
+        Xz_ = Xz_ + K * innovation;
+        Pz_ = Pz_ - K * H * Pz_;
     }
 
     // ================================ Magnetic sub callback / EKF Correction ========================================
@@ -234,9 +243,18 @@ namespace ee4308::drone
         // dt
         // std::cos(), std::sin()
         // =========
+        Eigen::Matrix2d F;
+        F << 1.0, dt,
+             0.0, 1.0;
 
-        // rewrite or delete the following
-        (void) msg;
+        Eigen::Vector2d W;
+        W << 0.5 * dt * dt,
+             dt;
+
+        double az = msg.linear_acceleration.z - GRAVITY;
+
+        Xz_ = F * Xz_ + W * az;
+        Pz_ = F * Pz_ * F.transpose() + W * var_imu_z_ * W.transpose();
     }
 
     void Estimator::callbackSubTrueOdom_(const nav_msgs::msg::Odometry msg)
