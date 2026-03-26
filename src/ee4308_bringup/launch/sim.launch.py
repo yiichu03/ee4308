@@ -17,7 +17,6 @@ def generate_launch_description():
     # ================ 1. PACKAGE SHARE DIRECTORIES ==============
     pkg_ros_gz_sim = FindPackageShare("ros_gz_sim")
     pkg_ee4308_bringup = FindPackageShare("ee4308_bringup")
-    pkg_turtlebot3_gazebo = FindPackageShare("turtlebot3_gazebo")
 
     # ================ 2. LAUNCH ARGUMENTS ==============
     # Launch Arg: project mode
@@ -75,13 +74,6 @@ def generate_launch_description():
         "GZ_SIM_RESOURCE_PATH", PathJoinSubstitution([pkg_ee4308_bringup, "models"])
     )
     ld.add_action(env_gz_sim_resource_path)
-
-    # The world file includes `model://turtlebot3_house`, which is provided by
-    # the TurtleBot3 Gazebo package instead of this repository.
-    env_gz_sim_resource_path_tb3 = AppendEnvironmentVariable(
-        "GZ_SIM_RESOURCE_PATH", PathJoinSubstitution([pkg_turtlebot3_gazebo, "models"])
-    )
-    ld.add_action(env_gz_sim_resource_path_tb3)
 
     # Launch Gz depending on headless or with GUI
     launch_gz_sim_launch_file = PathJoinSubstitution(
