@@ -1,0 +1,11 @@
+input_csv: tmp/lab2_sonar/20260326_200544/sonar_samples.csv
+samples: 120
+best_fit_slope_m_per_s: -0.001410100
+best_fit_intercept_m: 0.060003462
+residual_mean_m: 0.000000000
+residual_stddev_m: 0.017689169
+residual_variance_m2: 0.000312907
+
+Interpretation:
+- Use residual_variance_m2 as an initial estimate for var_sonar.
+- Then run the simulator and tune around this value.

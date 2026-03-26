@@ -65,8 +65,8 @@ so the state size is `2 x 1`, and the sonar measurement is a scalar.
 Therefore:
 
 - $\mathbf{H}$ is `1 x 2`
-- innovation `y - Hx` is `1 x 1`
-- innovation covariance `HPH^T + R` is `1 x 1`
+- innovation `(y - H Xz)` is `1 x 1`
+- innovation covariance `(H P H^T + R)` is `1 x 1`
 - $\mathbf{K}$ is `2 x 1`
 
 This matches the code:
@@ -88,8 +88,8 @@ Xz = [z, z_dot]^T
 因此：
 
 - $\mathbf{H}$ 是 `1 x 2`
-- innovation `y - Hx` 是 `1 x 1`
-- innovation covariance `HPH^T + R` 是 `1 x 1`
+- innovation `(y - H Xz)` 是 `1 x 1`
+- innovation covariance `(H P H^T + R)` 是 `1 x 1`
 - $\mathbf{K}$ 是 `2 x 1`
 
 这也和代码写法一致：
@@ -113,32 +113,44 @@ In order to determine $\sigma_{snr,z}^2$, one way is to make the drone stationar
 My process is:
 
 1. Keep the drone as stationary as possible and record about 100 sonar samples.
-2. Plot sonar reading versus time and fit a best fit line to the data.
-3. Treat the slow upward drift as the trend, and subtract the fitted line from the samples.
-4. Compute the variance of the residuals. Use that as the initial estimate of $\sigma_{snr,z}^2$.
-5. Then tune it in simulation. If the estimate follows sonar noise too aggressively, increase $\sigma_{snr,z}^2$. If the estimate drifts too much and does not correct well, decrease $\sigma_{snr,z}^2$.
+2. Fit a best fit line to sonar reading versus time, and treat that line as the slow drift trend.
+3. Subtract the fitted line from the samples to get the residuals.
+4. Compute the variance of the residuals and use it as the initial estimate of $\sigma_{snr,z}^2$.
+5. Then tune `var_sonar` further in simulation. If the estimate follows sonar noise too much, increase `var_sonar`. If the `z` estimate drifts too much and the correction is too weak, decrease `var_sonar`.
 
-In my final tuning, I used:
+In my experiment, the best fit line method gave an initial estimate of about
 
 ```text
-var_sonar = 0.05
+var_sonar ≈ 0.000312907
 ```
 
-which gave a stable `z` estimate together with the implemented prediction and correction steps.
+After further tuning in simulation, I used:
+
+```text
+var_sonar = 0.03
+```
+
+Together with `var_imu_z = 20.0`, this gave a more stable `z` estimate.
 
 ### 中文答案
 我的做法是：
 
 1. 先让无人机尽量保持静止，记录大约 100 个 sonar 样本。
-2. 把 sonar 读数对时间画出来，然后对这些点做一条 best fit line。
-3. 把无人机缓慢上漂看成趋势项，用每个样本减去这条拟合线。
+2. 对 sonar 读数随时间做一条 best fit line，把它看成缓慢漂移的趋势。
+3. 用样本减去拟合线，得到残差。
 4. 对残差求方差，把它作为 $\sigma_{snr,z}^2$ 的初始估计。
-5. 再用仿真继续微调。如果估计结果跟着 sonar 噪声抖得太厉害，就把 $\sigma_{snr,z}^2$ 调大；如果高度估计漂移明显、校正不够，就把 $\sigma_{snr,z}^2$ 调小。
+5. 然后再在仿真里继续微调 `var_sonar`。如果估计结果跟着 sonar 噪声抖得太厉害，就把 `var_sonar` 调大；如果 `z` 方向漂移明显、校正太弱，就把 `var_sonar` 调小。
 
-我最后调到的参数是：
+在我的实验里，best fit line 得到的初始估计大约是：
 
 ```text
-var_sonar = 0.05
+var_sonar ≈ 0.000312907
 ```
 
-这组参数配合当前的 prediction 和 correction，得到的 `z` 轴估计比较稳定。
+之后再经过仿真微调，我最后采用的是：
+
+```text
+var_sonar = 0.03
+```
+
+并且配合 `var_imu_z = 20.0`，这组参数得到的 `z` 轴估计更稳定。
