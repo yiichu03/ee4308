@@ -9,12 +9,81 @@
 
 参考文件：`docs/lab2.md`
 
+## 已确认的本机 Docker 环境
+
+你机器上已经有一个可用的课程容器：
+
+- 容器名：`ee4308_jazzy_proj2`
+- 镜像：`osrf/ros:jazzy-desktop-full-noble`
+- 容器内工作目录：`/ws/ee4308`
+- Host 挂载目录：`/home/liuyi/projects/ee4308_proj2 -> /ws/ee4308`
+
+另外，旧的 `lab1/proj1` 环境现在也有自己的独立容器：
+
+- 容器名：`ee4308_jazzy_proj1`
+- Host 挂载目录：`/home/liuyi/projects/ee4308_proj1 -> /ws/ee4308`
+
+旧的 `ee4308_jazzy_legacy_oldpath` 只是迁移前的备份容器，不建议继续使用。
+
+## 使用 `ee4308_jazzy_proj2` 的基本命令
+
+如果你要在容器里打开 Gazebo / RViz 图形界面，先在宿主机终端运行：
+
+```bash
+xhost +SI:localuser:root
+```
+
+启动容器：
+
+```bash
+docker start ee4308_jazzy_proj2
+```
+
+进入容器：
+
+```bash
+docker exec -it ee4308_jazzy_proj2 bash
+```
+
+进入容器后，工作区目录是：
+
+```bash
+cd /ws/ee4308
+```
+
+进入容器后先 source ROS 2 Jazzy：
+
+```bash
+source /opt/ros/jazzy/setup.bash
+```
+
+如果容器里还没有 TurtleBot3 Gazebo 模型资源，先安装一次：
+
+```bash
+apt-get update
+apt-get install -y ros-jazzy-turtlebot3-gazebo
+```
+
+然后再编译：
+
+```bash
+cd /ws/ee4308
+colcon build --symlink-install
+source install/setup.bash
+```
+
+启动仿真：
+
+```bash
+ros2 launch ee4308_bringup proj2_sim.launch.py
+```
+
 ## 工作区目录
 
 下面的命令默认你在本仓库根目录执行：
 
 ```bash
-cd /home/liuyi/projects/ee4308_course
+cd /home/liuyi/projects/ee4308_proj2
 ```
 
 ## 构建与运行
@@ -138,6 +207,20 @@ ros2 param get /drone/estimator verbose
 ## Docker 备注
 
 当前这个仓库里没有 `Dockerfile` 或 `docker-compose` 文件，所以你之前配过的 EE4308 Docker 环境大概率不在这个仓库目录里。
+
+你现在进行 `lab2/proj2` 时，最常用的容器就是 `ee4308_jazzy_proj2`：
+
+```bash
+docker start ee4308_jazzy_proj2
+docker exec -it ee4308_jazzy_proj2 bash
+```
+
+进入后使用：
+
+```bash
+cd /ws/ee4308
+source /opt/ros/jazzy/setup.bash
+```
 
 ### 查找可能的容器
 
