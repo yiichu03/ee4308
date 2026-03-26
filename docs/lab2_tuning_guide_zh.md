@@ -77,10 +77,10 @@ Lab 2 最重要的是这两个：
 
 ## 基本运行流程
 
-在仓库根目录：
+如果你是在 Docker 容器里操作，优先使用容器内路径：
 
 ```bash
-cd /home/liuyi/projects/ee4308_proj2
+cd /ws/ee4308
 colcon build --symlink-install
 source install/setup.bash
 ros2 launch ee4308_bringup proj2_sim.launch.py
@@ -99,6 +99,26 @@ colcon build --symlink-install
 source install/setup.bash
 ros2 launch ee4308_bringup proj2_sim.launch.py
 ```
+
+如果你想把终端输出直接写进日志文件，也可以在容器里用：
+
+```bash
+cd /ws/ee4308
+./bd.sh
+./proj2_sim_log.sh
+```
+
+其中：
+
+- `./bd.sh` 只是编译脚本，不会启动仿真
+- `./proj2_sim_log.sh` 会启动仿真，并把输出写到 `log/lab2/`
+
+不要在同一个终端里“同时”运行两个前台脚本。  
+正确做法是：
+
+1. 先运行 `./bd.sh`
+2. 等它结束
+3. 再运行 `./proj2_sim_log.sh`
 
 ## 调参前先固定这几件事
 

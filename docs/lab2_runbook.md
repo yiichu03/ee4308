@@ -78,12 +78,43 @@ source install/setup.bash
 ros2 launch ee4308_bringup proj2_sim.launch.py
 ```
 
+## 在 Docker 里最常用的工作流
+
+如果你是在 `ee4308_jazzy_proj2` 容器里做 `lab2`，最常用的是下面这组命令：
+
+```bash
+cd /ws/ee4308
+source /opt/ros/jazzy/setup.bash
+./bd.sh
+./proj2_sim_log.sh
+```
+
+这里：
+
+- `./bd.sh`
+  - 只是 `colcon build --symlink-install` 的简写
+  - 它的作用是重新编译
+
+- `./proj2_sim_log.sh`
+  - 会先 `source install/setup.bash`
+  - 然后启动 `proj2_sim.launch.py`
+  - 并把终端输出同时保存到 `log/lab2/` 里的日志文件
+
+注意：
+
+- 这两个脚本不是“同时运行”
+- 正确顺序是先跑 `./bd.sh`
+- 等编译结束后，再跑 `./proj2_sim_log.sh`
+
+如果你在同一个终端里运行 `./proj2_sim_log.sh`，这个终端会被仿真占住，直到你按 `Ctrl+C` 停止。
+如果你想一边跑仿真一边看别的命令，请再开一个终端，或者重新 `docker exec -it ee4308_jazzy_proj2 bash` 进入一个新的容器终端。
+
 ## 工作区目录
 
 下面的命令默认你在本仓库根目录执行：
 
 ```bash
-cd /home/liuyi/projects/ee4308_proj2
+cd /ws/ee4308
 ```
 
 ## 构建与运行

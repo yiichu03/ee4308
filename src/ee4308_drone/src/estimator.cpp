@@ -251,7 +251,7 @@ namespace ee4308::drone
         W << 0.5 * dt * dt,
              dt;
 
-        double az = msg.linear_acceleration.z + GRAVITY;
+        double az = msg.linear_acceleration.z - GRAVITY;
 
         Xz_ = F * Xz_ + W * az;
         Pz_ = F * Pz_ * F.transpose() + W * var_imu_z_ * W.transpose();
