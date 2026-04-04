@@ -1,5 +1,31 @@
 #include "ee4308_drone/behavior.hpp"
 
+namespace
+{
+    const char *getBehaviorStateName(const int state)
+    {
+        switch (state)
+        {
+        case 0:
+            return "BEGIN";
+        case 1:
+            return "TAKEOFF";
+        case 2:
+            return "TURTLE_POSITION";
+        case 3:
+            return "TURTLE_WAYPOINT";
+        case 4:
+            return "INITIAL";
+        case 5:
+            return "LANDING";
+        case 6:
+            return "END";
+        default:
+            return "UNKNOWN";
+        }
+    }
+}
+
 namespace ee4308::drone
 {
 
@@ -109,7 +135,16 @@ namespace ee4308::drone
 
     void Behavior::transition_(int new_state)
     {
-        // std::cout << "transition_ from " << state_ << " To " << new_state << std::endl;
+        // TMP LOG: remove before submission after behavior/controller integration is stable.
+        RCLCPP_INFO(
+            this->get_logger(),
+            "Behavior transition %s -> %s | turtle_stop=%s | waypoint=(%.2f, %.2f, %.2f)",
+            getBehaviorStateName(state_),
+            getBehaviorStateName(new_state),
+            turtle_stop_ ? "true" : "false",
+            waypoint_x_,
+            waypoint_y_,
+            waypoint_z_);
 
         state_ = new_state;
 
@@ -162,6 +197,15 @@ namespace ee4308::drone
             this->timer_->cancel();
             this->timer_ = nullptr;
         }
+
+        // TMP LOG: remove before submission after behavior/controller integration is stable.
+        RCLCPP_INFO(
+            this->get_logger(),
+            "Behavior target %s | new_waypoint=(%.2f, %.2f, %.2f)",
+            getBehaviorStateName(state_),
+            waypoint_x_,
+            waypoint_y_,
+            waypoint_z_);
     }
 
     void Behavior::setWaypoint_(double waypoint_x, double waypoint_y, double waypoint_z)

@@ -19,12 +19,12 @@ drone:
       kp_z: 1.0
       frequency: 20.0
       enable: true
-      use_sim_time: true 
+      use_sim_time: true
 
   planner:
     ros__parameters:
       interpolation_distance: 0.1
-      
+
   estimator:
     ros__parameters:
       frequency: 30.0
@@ -39,7 +39,7 @@ drone:
       var_sonar: 0.03   # tune param2
       var_magnet: 1.0
       use_sim_time: true
-      use_ground_truth: false
+      use_ground_truth: true
       verbose: true
       # initial_x: -2.0 # overwritten by launch file
       # initial_y: -2.0 # overwritten by launch file
@@ -54,7 +54,7 @@ turtle:
       waypoints: [1.0, 4.0, -4.5, -2.0] # {list of double}
       frequency: 1.0                    # {double}
       reached_thres: 0.05               # {double}
-      use_sim_time: true 
+      use_sim_time: true
 
   planner:
     ros__parameters:
