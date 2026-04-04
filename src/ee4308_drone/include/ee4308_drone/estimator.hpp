@@ -7,6 +7,7 @@
 #include "rclcpp/rclcpp.hpp"
 #include "rclcpp_components/register_node_macro.hpp"
 #include "nav_msgs/msg/odometry.hpp"          // odom_drone
+#include "nav_msgs/msg/path.hpp"
 #include "geometry_msgs/msg/twist.hpp"        // gt_vel, cmd_vel
 #include "geometry_msgs/msg/pose.hpp"         // gt_pose
 #include "sensor_msgs/msg/fluid_pressure.hpp" // barometer
@@ -27,6 +28,7 @@ namespace ee4308::drone
     {
     private:
         rclcpp::Publisher<nav_msgs::msg::Odometry>::SharedPtr pub_est_odom_;
+        rclcpp::Publisher<nav_msgs::msg::Path>::SharedPtr pub_est_path_;
         rclcpp::Subscription<sensor_msgs::msg::NavSatFix>::SharedPtr sub_gps_;
         rclcpp::Subscription<sensor_msgs::msg::LaserScan>::SharedPtr sub_sonar_;
         rclcpp::Subscription<sensor_msgs::msg::FluidPressure>::SharedPtr sub_baro_;
@@ -37,14 +39,15 @@ namespace ee4308::drone
 
         // States
         nav_msgs::msg::Odometry true_odom_; // ground truth
+        nav_msgs::msg::Path est_path_;
         Eigen::Vector2d Xx_;
         Eigen::Vector2d Xy_;
-        Eigen::Vector2d Xz_;
+        Eigen::Vector3d Xz_;
         Eigen::Vector2d Xa_;
         Eigen::Matrix2d Px_;
         Eigen::Matrix2d Py_;
         Eigen::Matrix2d Pa_;
-        Eigen::Matrix2d Pz_;
+        Eigen::Matrix3d Pz_;
         Eigen::Vector3d initial_ECEF_;
         Eigen::Vector3d initial_position_;
         Eigen::Vector3d Ygps_;
@@ -53,6 +56,7 @@ namespace ee4308::drone
         double Ysonar_;
         double last_predict_time_;
         bool initialized_ecef_;
+        bool initialized_baro_;
         bool initialized_magnetic_;
 
         // Parameters
@@ -85,6 +89,7 @@ namespace ee4308::drone
 
     private:
         void callbackTimer();
+        void publishOdomAndHistory_(const nav_msgs::msg::Odometry &odom);
 
         Eigen::Vector3d getECEF_(
             const double &sin_lat, const double &cos_lat,

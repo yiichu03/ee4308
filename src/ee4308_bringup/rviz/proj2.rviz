@@ -296,6 +296,34 @@ Visualization Manager:
             Value: /drone/plan
           Value: true
         - Alpha: 1
+          Buffer Length: 1
+          Class: rviz_default_plugins/Path
+          Color: 255; 170; 0
+          Enabled: true
+          Head Diameter: 0.10000000149011612
+          Head Length: 0.10000000149011612
+          Length: 0.10000000149011612
+          Line Style: Billboards
+          Line Width: 0.05000000074505806
+          Name: Est. Trail
+          Offset:
+            X: 0
+            Y: 0
+            Z: 0
+          Pose Color: 255; 170; 0
+          Pose Style: None
+          Radius: 0.029999999329447746
+          Shaft Diameter: 0.029999999329447746
+          Shaft Length: 0.05000000074505806
+          Topic:
+            Depth: 5
+            Durability Policy: Volatile
+            Filter size: 10
+            History Policy: Keep Last
+            Reliability Policy: Reliable
+            Value: /drone/odom_history
+          Value: true
+        - Alpha: 1
           Class: rviz_default_plugins/RobotModel
           Collision Enabled: false
           Description File: ""
@@ -364,7 +392,7 @@ Visualization Manager:
               Value: true
             Value: true
           Enabled: true
-          Keep: 10
+          Keep: 1
           Name: Est. Odom
           Position Tolerance: 0.009999999776482582
           Shape:

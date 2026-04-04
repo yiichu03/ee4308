@@ -1,0 +1,2 @@
+1. current_logic | aligned_score=0.647 | aligned w10_18 mae(x,y,z)=(0.479, 0.132, 0.017) | aligned w7_25 mae_z=0.019
+2. gps_z_0p3_logic | aligned_score=0.671 | aligned w10_18 mae(x,y,z)=(0.358, 0.260, 0.026) | aligned w7_25 mae_z=0.026

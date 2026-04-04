@@ -30,7 +30,7 @@ drone:
       frequency: 30.0
       var_imu_x: 2.0
       var_imu_y: 2.0
-      var_imu_z: 20.0  # tune param1
+      var_imu_z: 10.0  # tune param1
       var_imu_a: 1.0
       var_gps_x: 0.5
       var_gps_y: 0.5

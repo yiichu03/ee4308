@@ -1,0 +1,7 @@
+1. gps_z_0p3 | aligned_score=0.934 | aligned w10_18 mae(x,y,z)=(0.433, 0.311, 0.017) | aligned w7_25 mae_z=0.173
+2. gps_z_0p7 | aligned_score=1.048 | aligned w10_18 mae(x,y,z)=(0.501, 0.209, 0.026) | aligned w7_25 mae_z=0.312
+3. baro_1p5 | aligned_score=1.165 | aligned w10_18 mae(x,y,z)=(0.458, 0.277, 0.014) | aligned w7_25 mae_z=0.416
+4. imu_z_30 | aligned_score=1.427 | aligned w10_18 mae(x,y,z)=(0.897, 0.173, 0.025) | aligned w7_25 mae_z=0.332
+5. imu_z_10 | aligned_score=1.813 | aligned w10_18 mae(x,y,z)=(0.480, 0.518, 0.325) | aligned w7_25 mae_z=0.490
+6. baro_0p5 | aligned_score=2.007 | aligned w10_18 mae(x,y,z)=(0.689, 0.404, 0.460) | aligned w7_25 mae_z=0.454
+7. current | aligned_score=2.077 | aligned w10_18 mae(x,y,z)=(0.538, 0.506, 0.499) | aligned w7_25 mae_z=0.533

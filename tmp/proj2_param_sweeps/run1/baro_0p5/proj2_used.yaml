@@ -35,7 +35,7 @@ drone:
       var_gps_x: 0.5
       var_gps_y: 0.5
       var_gps_z: 0.5
-      var_baro: 1.0
+      var_baro: 0.5
       var_sonar: 0.03   # tune param2
       var_magnet: 1.0
       use_sim_time: true
