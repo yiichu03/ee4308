@@ -59,87 +59,125 @@ namespace ee4308::drone
 
     void Behavior::callbackTimer_()
     {
-        // ==== make use of ====
-        // state_
-        // TAKEOFF, TURTLE_POSITION, TURTLE_WAYPOINT, INITIAL, LANDING, END
-        // odom_
-        // waypoint_x_, waypoint_y_, waypoint_z_
-        // ==== ====
+        // Continuously update waypoint for TURTLE_POSITION to chase the moving turtle
+        if (state_ == TURTLE_POSITION && !turtle_plan_.poses.empty())
+        {
+            waypoint_x_ = turtle_plan_.poses.front().pose.position.x;
+            waypoint_y_ = turtle_plan_.poses.front().pose.position.y;
+            waypoint_z_ = cruise_height_;
+        }
 
-        if (1)  // change the 1: if (reached waypoint)
+        if (reachedWaypoint_())
         {
             if (state_ == TAKEOFF)
             {
+                // After reaching initial air position, start cycle or handle early turtle stop
+                if (turtle_stop_)
+                    transition_(INITIAL);
+                else
+                    transition_(TURTLE_POSITION);
+            }
+            else if (state_ == INITIAL)
+            {
+                // At initial air position: land if turtle done, else start next cycle
+                if (turtle_stop_)
+                    transition_(LANDING);
+                else
+                    transition_(TURTLE_POSITION);
+            }
+            else if (state_ == TURTLE_POSITION)
+            {
+                transition_(TURTLE_WAYPOINT);
+            }
+            else if (state_ == TURTLE_WAYPOINT)
+            {
                 transition_(INITIAL);
             }
-            // ...
+            else if (state_ == LANDING)
+            {
+                transition_(END);
+            }
         }
 
-        // request a plan with requestPlan(). This is done every time cbTimer() is called.
-        // ...
+        // Request a plan every timer tick so the controller always has a path
+        requestPlan_(
+            odom_.pose.pose.position.x,
+            odom_.pose.pose.position.y,
+            odom_.pose.pose.position.z,
+            waypoint_x_, waypoint_y_, waypoint_z_);
     }
 
     void Behavior::transition_(int new_state)
     {
         // std::cout << "transition_ from " << state_ << " To " << new_state << std::endl;
 
-        // ==== make use of ====
-        // new_state (function argument)
-        // state_
-        // TAKEOFF, TURTLE_POSITION, TURTLE_WAYPOINT, INITIAL, LANDING, END
-        // initial_x_, initial_y_, initial_z_,
-        // cruise_height_
-        // turtle_plan_.poses
-        // turtle_stop_
-        // =========
-
-        // modify the following
         state_ = new_state;
 
         if (state_ == TAKEOFF)
         {
-            // turn on the robot
+            // Turn on the robot and fly to initial air position
             std_msgs::msg::Bool msg_enable;
             msg_enable.data = true;
             this->pub_enable_->publish(msg_enable);
-
-            // set the waypoint.
             setWaypoint_(initial_x_, initial_y_, cruise_height_);
+        }
+        else if (state_ == INITIAL)
+        {
+            // Return to initial air position
+            setWaypoint_(initial_x_, initial_y_, cruise_height_);
+        }
+        else if (state_ == TURTLE_POSITION)
+        {
+            // Fly to turtle's current position (front of its path) at cruise height
+            if (!turtle_plan_.poses.empty())
+            {
+                setWaypoint_(
+                    turtle_plan_.poses.front().pose.position.x,
+                    turtle_plan_.poses.front().pose.position.y,
+                    cruise_height_);
+            }
+        }
+        else if (state_ == TURTLE_WAYPOINT)
+        {
+            // Fly to turtle's current goal (back of its path) at cruise height
+            if (!turtle_plan_.poses.empty())
+            {
+                setWaypoint_(
+                    turtle_plan_.poses.back().pose.position.x,
+                    turtle_plan_.poses.back().pose.position.y,
+                    cruise_height_);
+            }
+        }
+        else if (state_ == LANDING)
+        {
+            // Descend to initial ground position
+            setWaypoint_(initial_x_, initial_y_, initial_z_);
         }
         else if (state_ == END)
         {
-            // turn off the robot
+            // Turn off the robot and stop the state machine
             std_msgs::msg::Bool msg_enable;
             msg_enable.data = false;
             this->pub_enable_->publish(msg_enable);
-
-            // delete the timer to stop the state machine.
             this->timer_->cancel();
-            this->timer_ = nullptr; 
+            this->timer_ = nullptr;
         }
     }
 
     void Behavior::setWaypoint_(double waypoint_x, double waypoint_y, double waypoint_z)
     {
-        // you may choose to not use this function.
-        // ==== make use of ====
-        // waypoint_x_, waypoint_y_, waypoint_z_
-        // waypoint_x, waypoint_y, waypoint_z
-        // =========
-        
-        // remove or rewrite the following
-        (void) waypoint_x; // remove or .
-        (void) waypoint_y; // write to private class property.
-        (void) waypoint_z; // write to private class property.
+        waypoint_x_ = waypoint_x;
+        waypoint_y_ = waypoint_y;
+        waypoint_z_ = waypoint_z;
     }
 
     bool Behavior::reachedWaypoint_()
     {
-        // you may choose to not use this function.
-        // returns true if the current waypoint is reached.
-        
-        // remove or rewrite the following.
-        return true;
+        double dx = odom_.pose.pose.position.x - waypoint_x_;
+        double dy = odom_.pose.pose.position.y - waypoint_y_;
+        double dz = odom_.pose.pose.position.z - waypoint_z_;
+        double dist = std::sqrt(dx * dx + dy * dy + dz * dz);
+        return dist < reached_thres_;
     }
 
     void Behavior::requestPlan_(double drone_x, double drone_y, double drone_z,
