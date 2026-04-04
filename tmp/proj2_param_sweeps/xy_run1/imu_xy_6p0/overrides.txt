@@ -1,0 +1,2 @@
+var_imu_x=6.0
+var_imu_y=6.0

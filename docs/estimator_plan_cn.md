@@ -1367,3 +1367,155 @@ python3 tools/run_proj2_param_sweep.py \
 - 老师更容易给“我通过日志和图证明修掉了一个明确失败模式”的实现高分
 - 现在 `z` 已经有比较完整的故事线了
 - 剩下更值得投入的是平面位置偏差，而不是再去大改 behavior / controller
+
+#### 2026-04-05：平面 `x/y` lag 分析
+
+在 `z` 轴稳定下来之后，新的主要问题变成了平面方向的 lag。这个现象在：
+
+- [position_vs_time.png](/home/liuyi/projects/ee4308_proj2/tmp/proj2_param_sweeps/gating_run2/current_logic_repeat/plots/position_vs_time.png)
+
+里很明显：
+
+- `z` 基本贴合 ground truth
+- `x/y` 在转弯段和大范围机动段会明显落后
+- 这个问题更像“滤波器跟得不够快”，而不是“估计值已经发散”
+
+对应统计也支持这个判断：
+
+- `gating_run2/current_logic_repeat` 的整体 `aligned_all_mae_x = 0.481`
+- `gating_run2/current_logic_repeat` 的整体 `aligned_all_mae_y = 0.542`
+- `10~18s` 这段的 `x` 误差均值基本同号，说明它更接近系统性 lag，而不是零均值噪声
+
+#### 为了解决平面 lag，应该重点看哪部分代码
+
+重点看两段：
+
+1. [estimator.cpp](/home/liuyi/projects/ee4308_proj2/src/ee4308_drone/src/estimator.cpp) 里的 `callbackSubGPS_()`
+
+关键代码是：
+
+- `applyScalarCorrection(Xx_, Px_, Ygps_(0), var_gps_x_)`
+- `applyScalarCorrection(Xy_, Py_, Ygps_(1), var_gps_y_)`
+
+这意味着当前 GPS 只直接纠正平面位置状态，不直接纠正平面速度状态。
+
+含义是：
+
+- 如果 `var_gps_x / var_gps_y` 太大，滤波器会不够信 GPS
+- 一旦 prediction 本身已经有滞后，GPS correction 就很难及时把 `x/y` 拉回
+- 图上看到的“估计轨迹慢半拍”，往往就会出现在这里
+
+2. [estimator.cpp](/home/liuyi/projects/ee4308_proj2/src/ee4308_drone/src/estimator.cpp) 里的 `callbackSubIMU_()`
+
+关键代码是：
+
+- `ax = cos(yaw) * ux - sin(yaw) * uy`
+- `ay = sin(yaw) * ux + cos(yaw) * uy`
+- `Xx_ = F * Xx_ + W * ax`
+- `Xy_ = F * Xy_ + W * ay`
+
+这部分决定了平面 prediction。
+
+含义是：
+
+- 当前模型只用了 yaw，把 body-frame 的 `ux/uy` 旋转到世界系
+- 没有显式建模 roll / pitch
+- 所以高速平移、转弯或姿态变化时，平面 prediction 只能算一个近似
+- 如果 `var_imu_x / var_imu_y` 太小，滤波器会过度相信这个近似 prediction，于是 lag 更明显
+
+所以，要减少 lag，最先应该怀疑和调的是：
+
+- `var_gps_x = var_gps_y`
+- `var_imu_x = var_imu_y`
+
+而不是先去大改 behavior / controller。
+
+#### 我做过的一次代码尝试，以及为什么回退
+
+我尝试过一个更激进的方向：
+
+- 用相邻两帧 GPS 的位置差，估一个平面速度
+- 再用这个估计的 `vx / vy` 去额外纠正 `Xx_(1)` 和 `Xy_(1)`
+
+这个思路的目标很直接：
+
+- 既然 lag 看起来像速度状态没有及时跟上
+- 那就试着给速度状态也补一个 observation
+
+但是在当前项目里，这条线没有表现出足够稳定的收益，所以我已经回退，没有保留在代码里。
+
+我实际跑出来的一轮结果是：
+
+- `planar_logic_run1` 的 `aligned_score = 1.008`
+- `aligned_all_mae_x = 0.376`
+- `aligned_all_mae_y = 0.509`
+
+它并不是完全没改善，但问题是：
+
+- 它没有稳定地优于更强的 baseline
+- 在主演示窗口里，收益不够一致
+- 它本质上是在给一个简化模型再加一层“由 noisy GPS 差分得到的速度量测”
+- 这种做法对 run-to-run 波动比较敏感，报告里也不如“有明确物理含义的参数调优”好解释
+
+所以我当前的判断是：
+
+- 这条代码方向不是完全错误
+- 但以这个作业当前阶段来看，它还不够稳，不值得现在保留
+
+#### 当前更稳的路线
+
+当前更稳的路线仍然是参数层面的平面调优，而不是继续硬改 estimator 逻辑。
+
+优先顺序：
+
+1. 先扫 `var_gps_x = var_gps_y`
+2. 再扫 `var_imu_x = var_imu_y`
+3. 最后看少量组合 case
+
+原因是：
+
+- lag 的主现象更像“prediction 和 correction 的信任关系没调好”
+- 这和老师偏好的“有依据、可解释的改进”更一致
+- 即使后面要继续改代码，也应该先用 sweep 把趋势看清楚，再决定是否值得动模型
+
+#### 可直接运行的平面 sweep 脚本
+
+为了避免手写一大串 `--case`，现在补了一个专门扫平面参数的脚本：
+
+- [run_proj2_xy_sweep.py](/home/liuyi/projects/ee4308_proj2/tools/run_proj2_xy_sweep.py)
+
+它默认会跑这几类 case：
+
+- `current`
+- 更信 GPS：`var_gps_x = var_gps_y = 0.2 / 0.3 / 0.4 / 0.7`
+- 更不信 IMU 平面 prediction：`var_imu_x = var_imu_y = 3 / 4 / 6`
+- 少量组合 case
+
+直接运行：
+
+```bash
+source /opt/ros/jazzy/setup.bash
+cd /ws/ee4308
+python3 tools/run_proj2_xy_sweep.py \
+  --duration 40 \
+  --output-root tmp/proj2_param_sweeps/xy_run1
+```
+
+如果想顺手先编译一次：
+
+```bash
+source /opt/ros/jazzy/setup.bash
+cd /ws/ee4308
+python3 tools/run_proj2_xy_sweep.py \
+  --build \
+  --duration 40 \
+  --output-root tmp/proj2_param_sweeps/xy_run1
+```
+
+跑完后重点看：
+
+- `tmp/proj2_param_sweeps/xy_run1/summary.csv`
+- 每个 case 的 `plots/position_vs_time.png`
+- 每个 case 的 `plots/error_vs_time.png`
+
+后面把 `summary.csv` 路径给我，我就可以继续帮你筛哪组平面参数最值得保留。

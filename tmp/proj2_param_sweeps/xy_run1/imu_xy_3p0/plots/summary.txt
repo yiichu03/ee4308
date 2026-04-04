@@ -1,0 +1,14 @@
+input_path: /ws/ee4308/tmp/proj2_param_sweeps/xy_run1/imu_xy_3p0/aligned_pose_error.csv
+samples: 1201
+
+Mean absolute error:
+- x: 0.335645 m
+- y: 0.490809 m
+- z: 0.027092 m
+- yaw: 0.004804 rad
+
+RMSE:
+- x: 0.442445 m
+- y: 0.630117 m
+- z: 0.034144 m
+- yaw: 0.005845 rad
