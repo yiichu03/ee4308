@@ -13,30 +13,6 @@ namespace
         P = 0.5 * (P + P.transpose());
     }
 
-    template <typename MatrixType, typename HType>
-    double computeInnovationCovariance(
-        const MatrixType &P,
-        const HType &H,
-        const double variance)
-    {
-        return (H * P * H.transpose())(0, 0) + variance;
-    }
-
-    bool innovationPassesGate(
-        const double innovation,
-        const double innovation_covariance,
-        const double max_abs_innovation,
-        const double max_sigma)
-    {
-        if (!std::isfinite(innovation) || !std::isfinite(innovation_covariance))
-            return false;
-        if (innovation_covariance < ee4308::THRES)
-            return false;
-
-        const double normalized_innovation = std::abs(innovation) / std::sqrt(innovation_covariance);
-        return std::abs(innovation) <= max_abs_innovation && normalized_innovation <= max_sigma;
-    }
-
     void applyScalarCorrection(
         Eigen::Vector2d &X,
         Eigen::Matrix2d &P,
@@ -143,9 +119,6 @@ namespace ee4308::drone
         this->var_baro_ = ee4308::getParameter<double>(this, "var_baro", 0.2).as_double();
         this->var_sonar_ = ee4308::getParameter<double>(this, "var_sonar", 0.2).as_double();
         this->var_magnet_ = ee4308::getParameter<double>(this, "var_magnet", 0.2).as_double();
-        this->gps_position_max_innovation_xy_ = ee4308::getParameter<double>(this, "gps_position_max_innovation_xy", 1.5).as_double();
-        this->gps_position_max_innovation_z_ = ee4308::getParameter<double>(this, "gps_position_max_innovation_z", 2.0).as_double();
-        this->gps_position_max_sigma_ = ee4308::getParameter<double>(this, "gps_position_max_sigma", 5.0).as_double();
         this->gps_forward_compensation_enable_ = ee4308::getParameter<bool>(this, "gps_forward_compensation_enable", true).as_bool();
         this->gps_forward_compensation_max_dt_ = ee4308::getParameter<double>(this, "gps_forward_compensation_max_dt", 0.5).as_double();
         this->gps_velocity_alpha_ = ee4308::getParameter<double>(this, "gps_velocity_alpha", 0.6).as_double();
@@ -154,10 +127,6 @@ namespace ee4308::drone
         this->gps_velocity_max_innovation_ = ee4308::getParameter<double>(this, "gps_velocity_max_innovation", 1.5).as_double();
         this->gps_velocity_min_dt_ = ee4308::getParameter<double>(this, "gps_velocity_min_dt", 0.2).as_double();
         this->gps_velocity_max_dt_ = ee4308::getParameter<double>(this, "gps_velocity_max_dt", 2.0).as_double();
-        this->magnet_max_innovation_ = ee4308::getParameter<double>(this, "magnet_max_innovation", 1.2).as_double();
-        this->magnet_max_sigma_ = ee4308::getParameter<double>(this, "magnet_max_sigma", 5.0).as_double();
-        this->baro_max_innovation_ = ee4308::getParameter<double>(this, "baro_max_innovation", 1.5).as_double();
-        this->baro_max_sigma_ = ee4308::getParameter<double>(this, "baro_max_sigma", 5.0).as_double();
         this->verbose_ = ee4308::getParameter<bool>(this, "verbose", true).as_bool();
         this->frame_id_map_ = ee4308::getParameter<std::string>(this, "map_frame_id", "map").as_string();
         this->frame_id_drone_ = ee4308::getParameter<std::string>(this, "drone_frame_id", "drone/base_link").as_string();
@@ -190,8 +159,8 @@ namespace ee4308::drone
         this->Xy_ << initial_y, 0;
         this->Xz_ << initial_z, 0.0, 0.0;
         this->Xa_ << 0, 0;
-        this->Px_ = Eigen::Matrix2d::Constant(1e3),
-        this->Py_ = Eigen::Matrix2d::Constant(1e3),
+        this->Px_ = Eigen::Matrix2d::Constant(1e3);
+        this->Py_ = Eigen::Matrix2d::Constant(1e3);
         this->Pz_ = Eigen::Matrix3d::Constant(1e3);
         this->Pa_ = Eigen::Matrix2d::Constant(1e3);
         this->initial_ECEF_ << NAN, NAN, NAN;
@@ -207,7 +176,6 @@ namespace ee4308::drone
         this->latest_state_stamp_ = this->now();
         this->initialized_ecef_ = false;
         this->initialized_baro_ = false;
-        this->initialized_magnetic_ = false;
         this->has_last_gps_measurement_ = false;
         this->initialized_gps_velocity_ = false;
 
@@ -241,14 +209,6 @@ namespace ee4308::drone
         if (!std::isfinite(dt_gps) || dt_gps < gps_velocity_min_dt_ || dt_gps > gps_velocity_max_dt_)
         {
             initialized_gps_velocity_ = false;
-            RCLCPP_INFO_THROTTLE(
-                this->get_logger(),
-                *this->get_clock(),
-                1000,
-                "TMP LOG gps vel pseudo skipped: dt=%.3f outside [%.3f, %.3f]",
-                dt_gps,
-                gps_velocity_min_dt_,
-                gps_velocity_max_dt_);
             return;
         }
 
@@ -281,45 +241,13 @@ namespace ee4308::drone
         const double vel_innov_x = filtered_gps_velocity_(0) - Xx_(1);
         const double vel_innov_y = filtered_gps_velocity_(1) - Xy_(1);
 
-        bool applied_x = false;
-        bool applied_y = false;
         if (std::abs(vel_innov_x) <= gps_velocity_max_innovation_)
         {
             applyScalarCorrection(Xx_, Px_, filtered_gps_velocity_(0), vel_variance_x, Hvel);
-            applied_x = true;
         }
         if (std::abs(vel_innov_y) <= gps_velocity_max_innovation_)
         {
             applyScalarCorrection(Xy_, Py_, filtered_gps_velocity_(1), vel_variance_y, Hvel);
-            applied_y = true;
-        }
-
-        if (applied_x || applied_y)
-        {
-            RCLCPP_INFO_THROTTLE(
-                this->get_logger(),
-                *this->get_clock(),
-                1000,
-                "TMP LOG gps vel pseudo raw=(%.3f, %.3f) filt=(%.3f, %.3f) innov_v=(%.3f, %.3f) apply=(%d,%d)",
-                raw_gps_velocity(0),
-                raw_gps_velocity(1),
-                filtered_gps_velocity_(0),
-                filtered_gps_velocity_(1),
-                vel_innov_x,
-                vel_innov_y,
-                applied_x,
-                applied_y);
-        }
-        else
-        {
-            RCLCPP_INFO_THROTTLE(
-                this->get_logger(),
-                *this->get_clock(),
-                1000,
-                "TMP LOG gps vel pseudo rejected: innov_v=(%.3f, %.3f) threshold=%.3f",
-                vel_innov_x,
-                vel_innov_y,
-                gps_velocity_max_innovation_);
         }
     }
 
@@ -416,97 +344,13 @@ namespace ee4308::drone
             gps_correction_measurement(0) += Xx_(1) * dt_lag;
             gps_correction_measurement(1) += Xy_(1) * dt_lag;
             gps_correction_measurement(2) += Xz_(1) * dt_lag;
-
-            RCLCPP_INFO_THROTTLE(
-                this->get_logger(),
-                *this->get_clock(),
-                1000,
-                "TMP LOG gps forward compensation dt=%.3f shift=(%.3f, %.3f, %.3f)",
-                dt_lag,
-                Xx_(1) * dt_lag,
-                Xy_(1) * dt_lag,
-                Xz_(1) * dt_lag);
         }
-
-        const double innov_x = gps_correction_measurement(0) - Xx_(0);
-        const double innov_y = gps_correction_measurement(1) - Xy_(0);
-        Eigen::RowVector2d Hpos;
-        Hpos << 1.0, 0.0;
-        const double innov_cov_x = computeInnovationCovariance(Px_, Hpos, var_gps_x_);
-        const double innov_cov_y = computeInnovationCovariance(Py_, Hpos, var_gps_y_);
-        RCLCPP_INFO_THROTTLE(
-            this->get_logger(),
-            *this->get_clock(),
-            1000,
-            "TMP LOG gps innov_xy=(%.3f, %.3f) est_xy=(%.3f, %.3f) gps_xy=(%.3f, %.3f) corr_xy=(%.3f, %.3f) vel_xy=(%.3f, %.3f)",
-            innov_x,
-            innov_y,
-            Xx_(0),
-            Xy_(0),
-            Ygps_(0),
-            Ygps_(1),
-            gps_correction_measurement(0),
-            gps_correction_measurement(1),
-            Xx_(1),
-            Xy_(1));
-
-        if (innovationPassesGate(innov_x, innov_cov_x, gps_position_max_innovation_xy_, gps_position_max_sigma_))
-        {
-            applyScalarCorrection(Xx_, Px_, gps_correction_measurement(0), var_gps_x_);
-        }
-        else
-        {
-            RCLCPP_INFO_THROTTLE(
-                this->get_logger(),
-                *this->get_clock(),
-                1000,
-                "TMP LOG gps x rejected: innov=%.3f sigma=%.3f est=%.3f meas=%.3f corr=%.3f",
-                innov_x,
-                std::sqrt(innov_cov_x),
-                Xx_(0),
-                Ygps_(0),
-                gps_correction_measurement(0));
-        }
-
-        if (innovationPassesGate(innov_y, innov_cov_y, gps_position_max_innovation_xy_, gps_position_max_sigma_))
-        {
-            applyScalarCorrection(Xy_, Py_, gps_correction_measurement(1), var_gps_y_);
-        }
-        else
-        {
-            RCLCPP_INFO_THROTTLE(
-                this->get_logger(),
-                *this->get_clock(),
-                1000,
-                "TMP LOG gps y rejected: innov=%.3f sigma=%.3f est=%.3f meas=%.3f corr=%.3f",
-                innov_y,
-                std::sqrt(innov_cov_y),
-                Xy_(0),
-                Ygps_(1),
-                gps_correction_measurement(1));
-        }
+        applyScalarCorrection(Xx_, Px_, gps_correction_measurement(0), var_gps_x_);
+        applyScalarCorrection(Xy_, Py_, gps_correction_measurement(1), var_gps_y_);
         maybeApplyGPSVelocityCorrection_(stamp);
         Eigen::RowVector3d Hz;
         Hz << 1.0, 0.0, 0.0;
-        const double innov_z = gps_correction_measurement(2) - Xz_(0);
-        const double innov_cov_z = computeInnovationCovariance(Pz_, Hz, var_gps_z_);
-        if (innovationPassesGate(innov_z, innov_cov_z, gps_position_max_innovation_z_, gps_position_max_sigma_))
-        {
-            applyScalarCorrection(Xz_, Pz_, gps_correction_measurement(2), var_gps_z_, Hz);
-        }
-        else
-        {
-            RCLCPP_INFO_THROTTLE(
-                this->get_logger(),
-                *this->get_clock(),
-                1000,
-                "TMP LOG gps z rejected: innov=%.3f sigma=%.3f est=%.3f meas=%.3f corr=%.3f",
-                innov_z,
-                std::sqrt(innov_cov_z),
-                Xz_(0),
-                Ygps_(2),
-                gps_correction_measurement(2));
-        }
+        applyScalarCorrection(Xz_, Pz_, gps_correction_measurement(2), var_gps_z_, Hz);
         this->latest_state_stamp_ = stamp;
     }
 
@@ -535,25 +379,11 @@ namespace ee4308::drone
 
         if (std::isfinite(msg.range_min) && Ysonar_ < msg.range_min)
         {
-            RCLCPP_INFO_THROTTLE(
-                this->get_logger(),
-                *this->get_clock(),
-                1000,
-                "TMP LOG sonar rejected: meas=%.3f below range_min=%.3f",
-                Ysonar_,
-                msg.range_min);
             return;
         }
 
         if (std::isfinite(msg.range_max) && Ysonar_ > msg.range_max)
         {
-            RCLCPP_INFO_THROTTLE(
-                this->get_logger(),
-                *this->get_clock(),
-                1000,
-                "TMP LOG sonar rejected: meas=%.3f above range_max=%.3f",
-                Ysonar_,
-                msg.range_max);
             return;
         }
 
@@ -563,14 +393,6 @@ namespace ee4308::drone
         const bool trust_consistent_measurement = std::abs(sonar_innovation) <= SONAR_MAX_INNOVATION;
         if (!trust_low_altitude || !trust_consistent_measurement)
         {
-            RCLCPP_INFO_THROTTLE(
-                this->get_logger(),
-                *this->get_clock(),
-                1000,
-                "TMP LOG sonar rejected: meas=%.3f est_z=%.3f innov=%.3f",
-                Ysonar_,
-                predicted_z,
-                sonar_innovation);
             return;
         }
 
@@ -610,28 +432,7 @@ namespace ee4308::drone
         }
 
         Ymagnet_ = ee4308::limitAngle(std::atan2(-my, mx));
-        initialized_magnetic_ = true;
-        Eigen::RowVector2d Hyaw;
-        Hyaw << 1.0, 0.0;
-        const double yaw_innovation = ee4308::limitAngle(Ymagnet_ - Xa_(0));
-        const double yaw_innov_cov = computeInnovationCovariance(Pa_, Hyaw, var_magnet_);
-        if (innovationPassesGate(yaw_innovation, yaw_innov_cov, magnet_max_innovation_, magnet_max_sigma_))
-        {
-            applyAngularCorrection(Xa_, Pa_, Ymagnet_, var_magnet_);
-        }
-        else
-        {
-            RCLCPP_INFO_THROTTLE(
-                this->get_logger(),
-                *this->get_clock(),
-                1000,
-                "TMP LOG magnet rejected: innov=%.3f sigma=%.3f est=%.3f meas=%.3f",
-                yaw_innovation,
-                std::sqrt(yaw_innov_cov),
-                Xa_(0),
-                Ymagnet_);
-            return;
-        }
+        applyAngularCorrection(Xa_, Pa_, Ymagnet_, var_magnet_);
         this->latest_state_stamp_ = rclcpp::Time(msg.header.stamp);
     }
 
@@ -664,35 +465,12 @@ namespace ee4308::drone
             initialized_baro_ = true;
             Xz_(2) = Ybaro_ - Xz_(0);
             Pz_(2, 2) = var_baro_;
-            RCLCPP_INFO(
-                this->get_logger(),
-                "TMP LOG baro bias initialized: baro=%.3f est_z=%.3f bias=%.3f",
-                Ybaro_, Xz_(0), Xz_(2));
         }
 
         // The barometer measures z plus a slowly varying bias, so the observation model is [1 0 1].
         Eigen::RowVector3d Hbaro;
         Hbaro << 1.0, 0.0, 1.0;
-        const double baro_innovation = Ybaro_ - (Hbaro * Xz_)(0, 0);
-        const double baro_innov_cov = computeInnovationCovariance(Pz_, Hbaro, var_baro_);
-        if (innovationPassesGate(baro_innovation, baro_innov_cov, baro_max_innovation_, baro_max_sigma_))
-        {
-            applyScalarCorrection(Xz_, Pz_, Ybaro_, var_baro_, Hbaro);
-        }
-        else
-        {
-            RCLCPP_INFO_THROTTLE(
-                this->get_logger(),
-                *this->get_clock(),
-                1000,
-                "TMP LOG baro rejected: innov=%.3f sigma=%.3f est=%.3f meas=%.3f bias=%.3f",
-                baro_innovation,
-                std::sqrt(baro_innov_cov),
-                (Hbaro * Xz_)(0, 0),
-                Ybaro_,
-                Xz_(2));
-            return;
-        }
+        applyScalarCorrection(Xz_, Pz_, Ybaro_, var_baro_, Hbaro);
         this->latest_state_stamp_ = rclcpp::Time(msg.header.stamp);
     }
 
@@ -733,17 +511,6 @@ namespace ee4308::drone
         const double raw_az = msg.linear_acceleration.z - GRAVITY;
         const double az = std::clamp(raw_az, -MAX_ABS_VERTICAL_ACCEL, MAX_ABS_VERTICAL_ACCEL);
         const double uyaw = msg.angular_velocity.z;
-
-        if (std::abs(raw_az - az) > ee4308::THRES)
-        {
-            RCLCPP_INFO_THROTTLE(
-                this->get_logger(),
-                *this->get_clock(),
-                1000,
-                "TMP LOG imu z accel clamped: raw=%.3f clipped=%.3f",
-                raw_az,
-                az);
-        }
 
         const double ax = std::cos(yaw) * ux - std::sin(yaw) * uy;
         const double ay = std::sin(yaw) * ux + std::cos(yaw) * uy;
@@ -962,26 +729,6 @@ namespace ee4308::drone
                 std::cout << ss.str() << std::endl;
             }
 
-            const bool has_true_odom =
-                true_odom_.header.stamp.sec != 0 || true_odom_.header.stamp.nanosec != 0;
-            if (has_true_odom)
-            {
-                // TMP LOG: keep a compact z/baro summary for parameter tuning and video review.
-                RCLCPP_INFO_THROTTLE(
-                    this->get_logger(),
-                    *this->get_clock(),
-                    1000,
-                    "TMP LOG err_xyz=(%.3f, %.3f, %.3f) | z_est=%.3f vz_est=%.3f bias=%.3f | gps_z=%.3f sonar=%.3f baro=%.3f",
-                    true_odom_.pose.pose.position.x - Xx_(0),
-                    true_odom_.pose.pose.position.y - Xy_(0),
-                    true_odom_.pose.pose.position.z - Xz_(0),
-                    Xz_(0),
-                    Xz_(1),
-                    Xz_(2),
-                    Ygps_(2),
-                    Ysonar_,
-                    Ybaro_);
-            }
         }
     }
 }

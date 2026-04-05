@@ -28,16 +28,24 @@ drone:
   estimator:
     ros__parameters:
       frequency: 30.0
-      var_imu_x: 1.0
-      var_imu_y: 1.0
+      var_imu_x: 1.5
+      var_imu_y: 1.5
       var_imu_z: 20.0  # tune param1
       var_imu_a: 1.0
-      var_gps_x: 1.0
-      var_gps_y: 1.0
-      var_gps_z: 1.0
+      var_gps_x: 0.15
+      var_gps_y: 0.15
+      var_gps_z: 0.5
       var_baro: 1.0
       var_sonar: 0.03   # tune param2
       var_magnet: 1.0
+      gps_forward_compensation_enable: true
+      gps_forward_compensation_max_dt: 0.5
+      gps_velocity_alpha: 0.9
+      gps_velocity_variance_scale: 0.1
+      gps_velocity_min_variance: 0.04
+      gps_velocity_max_innovation: 1.5
+      gps_velocity_min_dt: 0.2
+      gps_velocity_max_dt: 2.0
       use_sim_time: true
       use_ground_truth: true
       verbose: true

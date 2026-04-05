@@ -41,7 +41,7 @@ drone:
       gps_forward_compensation_enable: true
       gps_forward_compensation_max_dt: 0.5
       gps_velocity_alpha: 0.9
-      gps_velocity_variance_scale: 0.1
+      gps_velocity_variance_scale: 0.0
       gps_velocity_min_variance: 0.04
       gps_velocity_max_innovation: 1.5
       gps_velocity_min_dt: 0.2

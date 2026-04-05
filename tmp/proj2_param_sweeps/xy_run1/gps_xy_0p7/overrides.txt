@@ -1,2 +1,0 @@
-var_gps_x=0.7
-var_gps_y=0.7

@@ -130,18 +130,6 @@ namespace ee4308::drone
         cmd_vel.linear.y = y_vel;
         cmd_vel.linear.z = z_vel;
         cmd_vel.angular.z = yaw_vel;
-        // TMP LOG: remove before submission after behavior/controller integration is stable.
-        RCLCPP_INFO_THROTTLE(
-            this->get_logger(),
-            *this->get_clock(),
-            1000,
-            "cmd_vel body=(%.3f, %.3f, %.3f) yaw=%.3f | odom_received=%s | plan_points=%zu",
-            x_vel,
-            y_vel,
-            z_vel,
-            yaw_vel,
-            received_odom_ ? "true" : "false",
-            plan_.poses.size());
         if (!std::isfinite(x_vel) || !std::isfinite(y_vel) || !std::isfinite(z_vel) || !std::isfinite(yaw_vel))
         {
             RCLCPP_WARN(this->get_logger(), 

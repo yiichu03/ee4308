@@ -1,0 +1,15 @@
+input_path: /ws/ee4308/tmp/proj2_param_sweeps/final_ablation_forward_comp/no_forward_comp/aligned_pose_error.csv
+samples: 1201
+
+Mean absolute error:
+- x: 0.290951 m
+- y: 0.214108 m
+- z: 0.016590 m
+- yaw: 0.004597 rad
+
+RMSE:
+- x: 0.403458 m
+- y: 0.291103 m
+- z: 0.020512 m
+- yaw: 0.005956 rad
+Wrote plots and summaries to /ws/ee4308/tmp/proj2_param_sweeps/final_ablation_forward_comp/no_forward_comp/plots

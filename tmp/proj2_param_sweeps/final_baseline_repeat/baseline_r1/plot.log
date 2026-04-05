@@ -1,0 +1,15 @@
+input_path: /ws/ee4308/tmp/proj2_param_sweeps/final_baseline_repeat/baseline_r1/aligned_pose_error.csv
+samples: 1201
+
+Mean absolute error:
+- x: 0.254439 m
+- y: 0.235843 m
+- z: 0.019312 m
+- yaw: 0.012422 rad
+
+RMSE:
+- x: 0.340273 m
+- y: 0.343544 m
+- z: 0.024199 m
+- yaw: 0.013213 rad
+Wrote plots and summaries to /ws/ee4308/tmp/proj2_param_sweeps/final_baseline_repeat/baseline_r1/plots

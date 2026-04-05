@@ -1,1 +1,0 @@
-1. run.log | aligned_score=0.698 | aligned w10_18 mae(x,y,z)=(0.424, 0.234, 0.021) | aligned w7_25 mae_z=0.018

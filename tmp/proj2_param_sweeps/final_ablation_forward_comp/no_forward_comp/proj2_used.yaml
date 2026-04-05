@@ -39,7 +39,7 @@ drone:
       var_sonar: 0.03   # tune param2
       var_magnet: 1.0
       gps_forward_compensation_enable: true
-      gps_forward_compensation_max_dt: 0.5
+      gps_forward_compensation_max_dt: 0.0
       gps_velocity_alpha: 0.9
       gps_velocity_variance_scale: 0.1
       gps_velocity_min_variance: 0.04

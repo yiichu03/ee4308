@@ -61,7 +61,6 @@ namespace ee4308::drone
         rclcpp::Time last_gps_stamp_;
         bool initialized_ecef_;
         bool initialized_baro_;
-        bool initialized_magnetic_;
         bool has_last_gps_measurement_;
         bool initialized_gps_velocity_;
 
@@ -79,9 +78,6 @@ namespace ee4308::drone
         double var_baro_;
         double var_sonar_;
         double var_magnet_;
-        double gps_position_max_innovation_xy_;
-        double gps_position_max_innovation_z_;
-        double gps_position_max_sigma_;
         bool gps_forward_compensation_enable_;
         double gps_forward_compensation_max_dt_;
         double gps_velocity_alpha_;
@@ -90,10 +86,6 @@ namespace ee4308::drone
         double gps_velocity_max_innovation_;
         double gps_velocity_min_dt_;
         double gps_velocity_max_dt_;
-        double magnet_max_innovation_;
-        double magnet_max_sigma_;
-        double baro_max_innovation_;
-        double baro_max_sigma_;
         bool verbose_;
         bool use_ground_truth_;
 

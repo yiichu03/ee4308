@@ -1,7 +1,0 @@
-1. vel_fix_gps0p15 | aligned_score=0.418 | aligned w10_18 mae(x,y,z)=(0.264, 0.117, 0.020) | aligned w7_25 mae_z=0.017
-2. vel_fix_gps0p3 | aligned_score=0.443 | aligned w10_18 mae(x,y,z)=(0.242, 0.138, 0.033) | aligned w7_25 mae_z=0.031
-3. vel_fix_gps0p2 | aligned_score=0.485 | aligned w10_18 mae(x,y,z)=(0.332, 0.101, 0.030) | aligned w7_25 mae_z=0.021
-4. vel_fix_gps0p2_imu35 | aligned_score=0.507 | aligned w10_18 mae(x,y,z)=(0.226, 0.225, 0.028) | aligned w7_25 mae_z=0.029
-5. vel_fix_gps0p2_imu4 | aligned_score=0.619 | aligned w10_18 mae(x,y,z)=(0.449, 0.122, 0.022) | aligned w7_25 mae_z=0.026
-6. old_baseline | aligned_score=0.705 | aligned w10_18 mae(x,y,z)=(0.456, 0.200, 0.024) | aligned w7_25 mae_z=0.024
-7. vel_fix_only | aligned_score=0.706 | aligned w10_18 mae(x,y,z)=(0.412, 0.241, 0.025) | aligned w7_25 mae_z=0.028
