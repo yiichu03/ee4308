@@ -1,0 +1,15 @@
+input_path: /ws/ee4308/tmp/proj2_param_sweeps/gating_compare1/gating_tighter/aligned_pose_error.csv
+samples: 1201
+
+Mean absolute error:
+- x: 14.212167 m
+- y: 0.162886 m
+- z: 0.025176 m
+- yaw: 0.002152 rad
+
+RMSE:
+- x: 21.596659 m
+- y: 0.225097 m
+- z: 0.030744 m
+- yaw: 0.002841 rad
+Wrote plots and summaries to /ws/ee4308/tmp/proj2_param_sweeps/gating_compare1/gating_tighter/plots

@@ -1,0 +1,14 @@
+input_path: /ws/ee4308/tmp/proj2_param_sweeps/gating_compare1/gating_off/aligned_pose_error.csv
+samples: 1201
+
+Mean absolute error:
+- x: 0.454588 m
+- y: 0.326409 m
+- z: 0.021340 m
+- yaw: 0.004186 rad
+
+RMSE:
+- x: 0.544126 m
+- y: 0.439040 m
+- z: 0.026059 m
+- yaw: 0.005820 rad

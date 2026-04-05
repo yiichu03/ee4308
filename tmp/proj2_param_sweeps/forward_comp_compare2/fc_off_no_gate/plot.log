@@ -1,0 +1,15 @@
+input_path: /ws/ee4308/tmp/proj2_param_sweeps/forward_comp_compare2/fc_off_no_gate/aligned_pose_error.csv
+samples: 1201
+
+Mean absolute error:
+- x: 0.485576 m
+- y: 0.313072 m
+- z: 0.025282 m
+- yaw: 0.016153 rad
+
+RMSE:
+- x: 0.630687 m
+- y: 0.421341 m
+- z: 0.031648 m
+- yaw: 0.016741 rad
+Wrote plots and summaries to /ws/ee4308/tmp/proj2_param_sweeps/forward_comp_compare2/fc_off_no_gate/plots

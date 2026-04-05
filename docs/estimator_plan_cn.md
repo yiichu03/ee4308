@@ -1930,3 +1930,272 @@ python3 tools/run_proj2_param_sweep.py \
 - `baro_max_sigma`
 
 这些默认值故意设得比较保守，目的是先挡掉明显坏点，而不是把正常 correction 卡掉。
+
+#### 2026-04-05：对另一份外部分析的判断
+
+这轮还参考了一份外部分析。它的总体方向是有价值的，但里面有些结论可以直接吸收，有些则需要更谨慎地验证。
+
+#### 我认为说得对的部分
+
+1. `GPS velocity pseudo-measurement` 当前增益可能偏小
+
+这个判断是有道理的。
+
+当前伪速度量测的 measurement variance 来自：
+
+- `gps_velocity_min_variance`
+- `gps_velocity_variance_scale * 2 * var_gps / dt_gps^2`
+
+如果这个 measurement variance 明显大于当前速度状态的后验方差，那么 Kalman gain 就会偏小，伪速度量测只能起到非常弱的拉动作用。
+
+这和我们之前的实验结论并不矛盾：
+
+- `pseudo_default` 比 `pseudo_off` 略好，说明它不是没用
+- 但收益并不大，说明它确实可能还偏保守
+
+2. 用 GPS 有限差分得到的速度，在加速段会系统性偏低
+
+这个判断也是对的。
+
+原因很直接：
+
+- 相邻两帧位置差 / `dt` 给出的是这一段时间里的平均速度
+- 而滤波器当前要修的是“当前时刻”的速度状态
+
+所以在明显加速段里，差分速度天然会比真实瞬时速度更低。这也是为什么伪速度量测不能设得太激进，否则容易把系统往“更慢”的方向拉。
+
+3. GPS correction 可能存在“测量时刻落后于当前状态”的问题
+
+这一点也值得重视。
+
+当前状态已经被 IMU 预测推进到了最近一次 IMU 时间戳，而 GPS message 的 `stamp` 可能更早。如果直接用旧时刻的 GPS 位置去修正当前状态，本质上是在做一个近似的 out-of-sequence correction。
+
+所以外部分析提出的“把 GPS 位置按当前估计速度做一个小幅前向补偿”是有物理直觉支持的。
+
+#### 我认为需要保留意见的部分
+
+1. “当前伪速度量测近似完全无效”这个结论说得太满
+
+从我们自己的对比：
+
+- `pseudo_default`：`aligned_score = 0.628`
+- `pseudo_off`：`aligned_score = 0.645`
+
+可以看出，当前伪速度量测不是“完全无效”，只是增益比较保守，收益有限。
+
+所以更准确的说法应当是：
+
+- 当前伪速度量测是有效的
+- 但它的作用偏弱，可能仍有小幅增强空间
+
+2. “`var_gps_x/y = 0.1 ~ 0.3` 完全没试过”并不准确
+
+我们之前其实已经试过其中一部分低值区间，尤其是 `0.2` 和 `0.3`。
+
+更准确的说法应当是：
+
+- 低 `var_gps_x/y` 区间没有被系统地细扫
+- 特别是 `0.1 / 0.15 / 0.25` 这几个点还没有做过成体系比较
+
+所以这条建议值得参考，但原始表述有点过头。
+
+#### 我当前最认可的两个后续方向
+
+1. 小幅增强伪速度量测，而不是一下子把它调得很激进
+
+外部分析建议：
+
+- `gps_velocity_min_variance = 0.05`
+- `gps_velocity_variance_scale = 0.1`
+
+这个方向本身是值得验证的，但风险也很明显：
+
+- 它比当前默认设置激进很多
+- 如果差分速度在加速段偏低，那过强的速度 correction 反而会把 lag 拉大
+
+所以更合理的做法不是直接相信它，而是把它作为下一轮“小规模候选配置”之一来对比，而不是直接设成新默认值。
+
+2. 试一个保守版的 GPS 前向补偿
+
+外部分析里最值得认真考虑的代码点，其实是这个：
+
+- 在 GPS correction 之前，根据 `dt_lag = last_predict_time_ - stamp.seconds()`，用当前估计速度把 GPS 测量前向补偿到当前状态时刻
+
+这个方向的优点是：
+
+- 它直接针对“状态在当前时刻，而 GPS 量测在过去时刻”的不一致
+- 理论上比单纯继续压低 `var_gps_x/y` 更有针对性
+
+它的风险是：
+
+- 会把当前估计速度误差又反馈回位置量测
+- 如果 `dt_lag` 很大或速度本身不准，可能会产生反效果
+
+所以如果要做，这也应该是“带门控、带 sanity check 的小改动”，而不是无条件启用。
+
+#### 当前我的结论
+
+如果把这份外部分析总结成一句话，我的判断是：
+
+- 它指出的问题方向基本是对的
+- 其中最值得参考的是“伪速度量测可能过弱”和“GPS 时间对齐误差可能造成额外 lag”
+- 但它给出的参数值不能直接当答案，需要实验验证
+
+所以当前最值得做的，不是立刻大改，而是等你这轮门控对比结果出来之后，再决定下面二选一：
+
+1. 做一轮“更强一点的伪速度量测”小范围对比
+2. 做一个“带 `dt_lag` sanity check 的 GPS 前向补偿”小 patch
+
+这两条里，我个人更看好第 2 条，因为它更直接针对时序不一致问题，也更容易在报告里解释。
+
+#### 2026-04-05：`gating_compare1` 结果与后续选择
+
+你跑出来的 `gating_compare1` 结果是：
+
+- `gating_off`：`aligned_score = 0.634`
+- `gating_default`：`aligned_score = 0.750`
+- `gating_tighter`：`aligned_score = 2.413`
+
+这说明：
+
+- 这轮加入的软门控并没有直接带来更好的总分
+- 更紧的门控会明显变差，说明过度拒绝 correction 很危险
+
+所以这里的结论应该写得很克制：
+
+- 软门控对“防偶发坏点”仍然是有工程价值的
+- 但它不是当前 lag 的主解法
+- 不能把它当成平面跟手性能的核心改进
+
+这也支持了后续把注意力转向 “GPS 前向补偿” 这条线。
+
+进一步解释这组结果：
+
+- `gating_default` 比 `gating_off` 差，说明当前这版门控默认阈值已经开始拦掉一部分本来有用的 correction
+- `gating_tighter` 明显更差，说明问题不是“门控方向错了”，而是“这类门控一旦变严，就会快速伤到正常更新”
+
+因此当前更合理的工程结论是：
+
+- 这套门控代码可以保留，作为可选保护逻辑和后续分析工具
+- 但不应该把当前默认阈值当成“效果增强”方案
+- 后续如果要继续做平面 lag 相关实验，应该先把门控等效关闭，避免它和前向补偿、伪速度量测互相干扰
+
+#### 2026-04-05：保守版 GPS 前向补偿 patch
+
+在 `callbackSubGPS_()` 里，当前状态已经由 IMU prediction 推进到了最近一次 IMU 时间，而 GPS message 的 `stamp` 往往更早。
+
+因此，如果直接用原始 GPS 位置去修正当前状态，本质上是在做一个近似的 out-of-sequence correction。
+
+这轮实现了一个保守版的前向补偿：
+
+- 先计算 `dt_lag = last_predict_time_ - stamp.seconds()`
+- 只有在 `0 < dt_lag < gps_forward_compensation_max_dt` 时才启用
+- 用当前估计速度把 GPS 量测前向补偿到当前状态时刻：
+
+```text
+x_gps_corr = x_gps + vx_est * dt_lag
+y_gps_corr = y_gps + vy_est * dt_lag
+z_gps_corr = z_gps + vz_est * dt_lag
+```
+
+然后：
+
+- 用补偿后的 `gps_correction_measurement` 做位置 innovation 计算
+- 再进行 GPS gating 和 correction
+
+这条逻辑的目标不是“神奇地把 GPS 变准”，而是：
+
+- 让 correction 时刻和状态时刻更一致
+- 尽量减少因为时间错位带来的表观 lag
+
+为了方便后续做开关对比，这次把它也做成了参数：
+
+- `gps_forward_compensation_enable`
+- `gps_forward_compensation_max_dt`
+
+默认值写在 [proj2.yaml](/home/liuyi/projects/ee4308_proj2/src/ee4308_bringup/params/proj2.yaml)：
+
+- `gps_forward_compensation_enable: true`
+- `gps_forward_compensation_max_dt: 0.5`
+
+如果后面要对比这条 patch 是否有效，只需要在 sweep 里开关这两个参数，不需要再改代码。
+
+但结合 `gating_compare1` 的结果，下一轮更合理的对比方式应该是：
+
+- 先把 `GPS / magnet / baro` 门控等效关闭
+- 再比较前向补偿 `on / off / smaller_dt`
+
+这样才能更干净地判断：
+
+- 前向补偿本身是否有帮助
+
+而不会把门控副作用一起混进去。
+
+#### 2026-04-05：`forward_comp_compare2` 结果
+
+在把 `GPS / magnet / baro` 门控等效关闭后，前向补偿对比结果是：
+
+- `fc_on_no_gate`：`aligned_score = 0.559`
+- `fc_off_no_gate`：`aligned_score = 0.864`
+- `fc_small_dt_no_gate`：`aligned_score = 0.940`
+
+这组结果的结论非常明确：
+
+1. GPS 前向补偿是有效的
+
+和关闭前向补偿相比：
+
+- `fc_on_no_gate` 的总分明显更好
+- `10~18s` 窗口里，`x` 误差从 `0.723` 降到了 `0.373`
+- `y` 虽然略有权衡，但整体综合指标明显改善
+
+这说明当前 lag 的确有一部分来自：
+
+- GPS correction 使用的是过去时刻的量测
+- 直接拿它修当前状态，会在平面机动段造成额外滞后
+
+2. `gps_forward_compensation_max_dt = 0.5` 比 `0.2` 更合适
+
+`fc_small_dt_no_gate` 明显比 `fc_on_no_gate` 差，说明：
+
+- 当前实际存在的 GPS 时间错位，不只是很小的一点点
+- 把最大补偿窗口限制到 `0.2s`，会让很多本该补偿的 GPS correction 又退回到旧问题
+
+所以当前默认保留：
+
+- `gps_forward_compensation_enable: true`
+- `gps_forward_compensation_max_dt: 0.5`
+
+3. 当前新加的 `GPS / magnet / baro` 门控不应作为默认增强方案
+
+结合前面的 `gating_compare1`：
+
+- 当前门控默认值不但没带来更好结果
+- 还会干扰对前向补偿效果的判断
+
+因此现在更合理的默认配置是：
+
+- 保留门控代码，作为可选开关和分析工具
+- 但在默认参数里把这些门控等效关闭
+
+也就是说，当前默认策略已经收敛为：
+
+- `sonar` 继续保留强门控
+- `GPS / magnet / baro` 的新软门控代码保留，但默认关闭
+- `GPS` 前向补偿默认开启
+
+#### 当前推荐状态
+
+基于目前所有实验，当前最值得保留的 estimator 组合是：
+
+- 平面参数：`var_gps_x/y = 0.4`，`var_imu_x/y = 3.0`
+- `gps_velocity_*` 保留保守默认值
+- `gps_forward_compensation_enable = true`
+- `gps_forward_compensation_max_dt = 0.5`
+- 新增的 `GPS / magnet / baro` 门控默认等效关闭
+
+这组配置的特点是：
+
+- 比早期版本更能跟上平面机动
+- 不依赖激进门控
+- 每一项改动都比较容易解释

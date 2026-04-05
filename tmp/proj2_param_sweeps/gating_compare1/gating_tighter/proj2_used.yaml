@@ -38,21 +38,19 @@ drone:
       var_baro: 1.0
       var_sonar: 0.03   # tune param2
       var_magnet: 1.0
-      gps_position_max_innovation_xy: 1000.0
-      gps_position_max_innovation_z: 1000.0
-      gps_position_max_sigma: 1000.0
-      gps_forward_compensation_enable: true
-      gps_forward_compensation_max_dt: 0.5
+      gps_position_max_innovation_xy: 1.0
+      gps_position_max_innovation_z: 1.5
+      gps_position_max_sigma: 4.0
       gps_velocity_alpha: 0.6
       gps_velocity_variance_scale: 1.0
       gps_velocity_min_variance: 0.4
       gps_velocity_max_innovation: 1.5
       gps_velocity_min_dt: 0.2
       gps_velocity_max_dt: 2.0
-      magnet_max_innovation: 3.14
-      magnet_max_sigma: 1000.0
-      baro_max_innovation: 1000.0
-      baro_max_sigma: 1000.0
+      magnet_max_innovation: 0.9
+      magnet_max_sigma: 4.0
+      baro_max_innovation: 1.0
+      baro_max_sigma: 4.0
       use_sim_time: true
       use_ground_truth: false
       verbose: true

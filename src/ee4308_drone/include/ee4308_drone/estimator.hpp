@@ -82,6 +82,8 @@ namespace ee4308::drone
         double gps_position_max_innovation_xy_;
         double gps_position_max_innovation_z_;
         double gps_position_max_sigma_;
+        bool gps_forward_compensation_enable_;
+        double gps_forward_compensation_max_dt_;
         double gps_velocity_alpha_;
         double gps_velocity_variance_scale_;
         double gps_velocity_min_variance_;
