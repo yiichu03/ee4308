@@ -2199,3 +2199,266 @@ z_gps_corr = z_gps + vz_est * dt_lag
 - 比早期版本更能跟上平面机动
 - 不依赖激进门控
 - 每一项改动都比较容易解释
+
+#### 2026-04-05：`vel_fix_run1` 实验结果与关键结论
+
+##### 实验动机
+
+在之前 `xy_run3` 的基础上，当前最好结果（`aligned_score=0.644`，`mae_x=0.446m`）仍然存在明显的平面 lag。  
+我们对 velocity correction Kalman gain 做了量化分析：
+
+当前参数下：
+- `R_vel = max(0.4, 1.0 × 2×0.4 / 1.0²) = 0.8 m²/s²`
+- 稳态速度方差 `P_vel ≈ 0.03 m²/s²`
+- `K_vel = 0.03 / (0.03 + 0.8) ≈ 3.6%`
+
+这意味着 velocity correction 每次只修正了 3.6% 的速度 innovation，几乎无效。
+
+另外，EMA 的 `alpha=0.6`（60% 新帧权重）在加速段会系统性低估当前瞬时速度（有限差分给的是区间平均速度），进一步加剧 lag。
+
+##### 参数修改
+
+- `gps_velocity_variance_scale: 1.0 → 0.1`
+- `gps_velocity_min_variance: 0.4 → 0.04`
+- `gps_velocity_alpha: 0.6 → 0.9`
+
+效果：`R_vel = max(0.04, 0.1×0.8) = 0.08`，`K_vel ≈ 27%`，比修改前高约 7 倍。
+
+##### 实验命令
+
+```bash
+python3 tools/run_proj2_param_sweep.py \
+  --no-default-cases \
+  --duration 40 \
+  --output-root tmp/proj2_param_sweeps/vel_fix_run1 \
+  --case "old_baseline:var_gps_x=0.4,var_gps_y=0.4,var_imu_x=3.0,var_imu_y=3.0,gps_velocity_variance_scale=1.0,gps_velocity_min_variance=0.4,gps_velocity_alpha=0.6" \
+  --case "vel_fix_only:var_gps_x=0.4,var_gps_y=0.4,var_imu_x=3.0,var_imu_y=3.0" \
+  --case "vel_fix_gps0p3:var_gps_x=0.3,var_gps_y=0.3,var_imu_x=3.0,var_imu_y=3.0" \
+  --case "vel_fix_gps0p2:var_gps_x=0.2,var_gps_y=0.2,var_imu_x=3.0,var_imu_y=3.0" \
+  --case "vel_fix_gps0p15:var_gps_x=0.15,var_gps_y=0.15,var_imu_x=3.0,var_imu_y=3.0" \
+  --case "vel_fix_gps0p2_imu35:var_gps_x=0.2,var_gps_y=0.2,var_imu_x=3.5,var_imu_y=3.5" \
+  --case "vel_fix_gps0p2_imu4:var_gps_x=0.2,var_gps_y=0.2,var_imu_x=4.0,var_imu_y=4.0"
+```
+
+##### 结果（按 aligned_score 升序）
+
+| 排名 | case | aligned_score | mae x (10-18s) | mae y (10-18s) | mae z (7-25s) |
+|---|---|---|---|---|---|
+| 1 | vel_fix_gps0p15 | **0.418** | 0.264 | 0.117 | 0.017 |
+| 2 | vel_fix_gps0p3  | 0.443 | 0.242 | 0.138 | 0.031 |
+| 3 | vel_fix_gps0p2  | 0.485 | 0.332 | 0.101 | 0.021 |
+| 4 | vel_fix_gps0p2_imu35 | 0.507 | 0.226 | 0.225 | 0.029 |
+| 5 | vel_fix_gps0p2_imu4  | 0.619 | 0.449 | 0.122 | 0.026 |
+| 6 | old_baseline    | 0.705 | 0.456 | 0.200 | 0.024 |
+| 7 | vel_fix_only    | 0.706 | 0.412 | 0.241 | 0.028 |
+
+与旧最好结果（`xy_run3 best_so_far`，score=0.644，mae_x=0.446，mae_y=0.160）相比：
+
+- `mae_x`：0.446 → 0.264，降低 **41%**
+- `mae_y`：0.160 → 0.117，降低 **27%**
+- `mae_z`：持平，仍在 0.017-0.020m
+
+##### 关键教训
+
+**1. velocity correction 修改本身没有贡献**
+
+`vel_fix_only`（score=0.706）和 `old_baseline`（score=0.705）几乎相同。
+这说明：velocity correction Kalman gain 从 3.6% 提升到 27%，对结果没有显著影响。
+
+原因是：有限差分 GPS 速度在加速段会系统性偏低（代表区间平均速度而非当前瞬时速度），即使 Kalman gain 更大，注入的也是带偏差的速度测量。在有 GPS 位置 correction 间接更新速度的前提下，再加一个偏低的显式速度 correction 反而可能对消。
+
+**2. 提升完全来自更低的 `var_gps_x/y`**
+
+`var_gps_x/y` 从 0.4 降到 0.15，让 GPS 位置 correction 的 Kalman gain 更大，每次 GPS 到来时对位置的拉回更有力。这是 41% 改善的真正来源。
+
+**3. 更高 `var_imu` 在低 `var_gps` 下反而变差**
+
+`imu=3.5/4.0 + gps=0.2` 的分数比 `imu=3.0 + gps=0.2` 更差。
+说明：当 GPS 已经提供足够强的位置 correction（低 var_gps），再给 IMU 更多 process noise 会增加不必要的不确定性，而不是"让协方差更开放"。
+
+**4. 当前 yaml 默认参数已更新为**
+
+```yaml
+var_gps_x: 0.15
+var_gps_y: 0.15
+gps_velocity_alpha: 0.9
+gps_velocity_variance_scale: 0.1
+gps_velocity_min_variance: 0.04
+```
+
+#### 2026-04-05：x/y 锯齿现象分析
+
+##### 现象描述
+
+在 `vel_fix_gps0p15` 的 `position_vs_time.png` 里，x/y estimate（橙色）相对 ground truth（蓝色）有明显的锯齿状（阶梯状）表现：
+
+- 锯齿周期：约 1 秒（对应 GPS 发布频率）
+- 锯齿幅度：约 0.1–0.3m（水平方向）
+- z 轴：完全平滑，无锯齿
+
+对比 `old_baseline`（`var_gps=0.4`）：锯齿也存在，但每步跳变更小，总体 lag 更大。
+
+##### 根因：GPS 是平面方向唯一传感器，且仅以 1 Hz 发布
+
+锯齿由两个分量叠加而成：
+
+**分量 1：GPS 测量噪声引起的跳变（静止时也存在）**
+
+- GPS 每帧位置有随机噪声（σ ≈ √var_gps ≈ 0.39m at var_gps=0.15）
+- 每次 GPS 到来，滤波器以 Kalman gain K_pos 向 GPS 读数修正
+- 跳变幅度 ≈ `K_pos × GPS_noise`
+- `var_gps` 越小，`K_pos` 越大，跳变越明显
+- 这是降低 `var_gps` 的不可避免代价
+
+**分量 2：IMU prediction drift 在 GPS 修正时的回拉（运动时才明显）**
+
+- 两次 GPS correction 之间（~1 秒），IMU 单独预测位置
+- IMU 速度方差每 IMU 步增长：`ΔP_v = var_imu × dt²`
+- 在 100Hz IMU、1 秒 GPS 间隔下：`σ_v 增长 ≈ sqrt(100 × 3.0 × 0.0001) ≈ 0.17 m/s`
+- 位置 drift 约 `σ_v × Δt / 2 ≈ 0.085m` per GPS 间隔
+- GPS 到来时一次性修正这个积累的 drift，表现为向 GT 的明显跳回
+
+**为什么 z 没有锯齿？**
+
+- sonar：低空时以约 10 Hz 连续修正 z（比 GPS 高 10 倍）
+- baro：以更高频率连续修正 z（带 bias 增广）
+- 连续高频 correction 消除了"drift 积累 → 一次性回拉"的周期性模式
+
+**为什么 x/y 无法像 z 一样平滑？**
+
+- 平面方向没有任何比 GPS（1 Hz）更高频的传感器
+- 磁力计只修正 yaw
+- 没有光流、视觉里程计等连续平面观测
+
+##### 解决方案
+
+**方案 1（最有效）：降低 `var_imu_x/y`，减少分量 2 的 drift 幅度**
+
+- `var_imu` 越小，IMU prediction 的速度不确定性增长越慢
+- 速度保持更准确 → 位置 drift 更小 → 每次 GPS 修正的跳变幅度更小
+- 与 `var_gps=0.15` 组合时，GPS correction 仍然足够强，协方差不会被 "钉死"
+- 建议尝试范围：`var_imu_x/y ∈ {1.0, 1.5, 2.0}`（第二轮 sweep 已含 2.0 和 2.5）
+
+理论预测：
+- `var_imu=1.0` 下，σ_v 增长 ≈ `sqrt(100 × 1.0 × 0.0001) = 0.10 m/s`，drift 幅度约减半
+
+**方案 2（不可避免，只能接受）：GPS 噪声引起的分量 1**
+
+- 这是 `var_gps=0.15` 下"更信 GPS"的代价
+- 噪声驱动的跳变随机、均值近似为零，不产生系统 lag
+- 它对行为/控制器的影响比 lag 小得多，通常可接受
+
+**方案 3（无法实现）：提高 GPS 发布频率**
+
+- 如果 GPS 以 5-10 Hz 发布，锯齿周期缩短且幅度减小
+- 这在仿真配置里无法更改
+
+**方案 4（结构性改进，复杂度高）：补充连续平面传感器**
+
+- 光流、视觉里程计等可以实时更新平面速度
+- 超出当前作业框架，不考虑
+
+##### 当前结论
+
+锯齿是"平面方向只有低频 GPS"的固有现象，无法完全消除，但可以通过降低 `var_imu_x/y` 减轻。
+
+下一轮 sweep（`vel_fix_run2`）已经包含 `imu=2.0/2.5` 的测试。如果结果支持，应进一步尝试 `imu=1.0/1.5`。
+
+
+#### 2026-04-05：`vel_fix_run2` 实验结果与结论
+
+##### 实验命令
+
+```bash
+python3 tools/run_proj2_param_sweep.py \
+  --no-default-cases \
+  --duration 40 \
+  --output-root tmp/proj2_param_sweeps/vel_fix_run2 \
+  --case "gps0p15_repeat:var_gps_x=0.15,var_gps_y=0.15,var_imu_x=3.0,var_imu_y=3.0" \
+  --case "gps0p15_no_vel:var_gps_x=0.15,var_gps_y=0.15,var_imu_x=3.0,var_imu_y=3.0,gps_velocity_variance_scale=0.0" \
+  --case "gps0p12:var_gps_x=0.12,var_gps_y=0.12,var_imu_x=3.0,var_imu_y=3.0" \
+  --case "gps0p10:var_gps_x=0.10,var_gps_y=0.10,var_imu_x=3.0,var_imu_y=3.0" \
+  --case "gps0p15_imu2p5:var_gps_x=0.15,var_gps_y=0.15,var_imu_x=2.5,var_imu_y=2.5" \
+  --case "gps0p15_imu2p0:var_gps_x=0.15,var_gps_y=0.15,var_imu_x=2.0,var_imu_y=2.0" \
+  --case "gps0p12_no_vel:var_gps_x=0.12,var_gps_y=0.12,var_imu_x=3.0,var_imu_y=3.0,gps_velocity_variance_scale=0.0"
+```
+
+##### 结果（按 aligned_score 升序）
+
+| 排名 | case | aligned_score | mae x (10-18s) | mae y (10-18s) | mae z (7-25s) |
+|---|---|---|---|---|---|
+| 1 | gps0p15_repeat    | **0.330** | 0.230 | 0.058 | 0.022 |
+| 2 | gps0p12           | 0.381 | 0.235 | 0.110 | 0.017 |
+| 3 | gps0p15_imu2p0    | 0.402 | **0.196** | 0.149 | 0.028 |
+| 4 | gps0p15_imu2p5    | 0.423 | 0.281 | 0.091 | 0.024 |
+| 5 | gps0p10           | 0.438 | 0.199 | 0.195 | 0.023 |
+| 6 | gps0p12_no_vel    | 0.480 | 0.267 | 0.168 | 0.025 |
+| 7 | gps0p15_no_vel    | 0.575 | 0.393 | 0.121 | 0.032 |
+
+##### 四个关键结论
+
+**结论 1：velocity correction 在低 var_gps 下确实有效**
+
+| 对比 | score 差值 |
+|---|---|
+| gps0p15 WITH vel vs WITHOUT vel | 0.330 vs 0.575（差 74%） |
+| gps0p12 WITH vel vs WITHOUT vel | 0.381 vs 0.480（差 26%） |
+
+这和 `vel_fix_run1` 里 `vel_fix_only ≈ old_baseline` 的结论并不矛盾：
+
+- 当 `var_gps=0.4` 时，GPS position correction 本身很弱，velocity correction 的额外作用被淹没
+- 当 `var_gps=0.15` 时，位置 correction 更强，速度方差也被更好地约束，velocity correction 的增量效果就显现出来了
+
+**结论 2：var_gps=0.10 比 0.12 更差，说明最优点在 0.12–0.15 区间**
+
+- `gps0p10`（score=0.438）比 `gps0p12`（score=0.381）更差
+- 过低的 var_gps 使 GPS 噪声引起的随机跳变太大，掩盖了更准确跟踪带来的优势
+
+**结论 3：降低 var_imu 可以改善 x 误差但会加重 y 误差（单次运行结论不稳定）**
+
+- `gps0p15_imu2p0` 的 mae_x=0.196 是所有 case 中最好的
+- 但 mae_y=0.149 明显比 `gps0p15_repeat` 的 0.058 更差
+- 考虑到单次 run 的波动，不能从单次结果确定 imu=2.0 一定优于 imu=3.0
+
+**结论 4：单次 run 方差很大，不能机械对比名次**
+
+- `gps0p15_repeat` 和 `vel_fix_gps0p15`（run1）用同样参数，得到 0.330 和 0.418（相差 27%）
+- 这说明：相差 0.05–0.10 以内的 case，不能认为存在显著差异
+- 后续对比 top 候选应做至少 3 次重复，才能得出可靠结论
+
+##### 当前参数状态（2026-04-05 定稿）
+
+综合两轮实验，以下参数组合最稳定：
+
+```yaml
+var_gps_x: 0.15
+var_gps_y: 0.15
+var_imu_x: 3.0
+var_imu_y: 3.0
+gps_velocity_alpha: 0.9
+gps_velocity_variance_scale: 0.1
+gps_velocity_min_variance: 0.04
+```
+
+相比初始 baseline（`var_gps=0.4`, `var_imu=3.0`, `vel_scale=1.0`）：
+
+- aligned_score：~0.70 → ~0.33–0.42（提升 ~40–50%）
+- mae_x (10-18s)：~0.45m → ~0.20–0.26m（提升 ~40%）
+- mae_y (10-18s)：~0.16m → ~0.06–0.12m（提升 ~25–60%）
+- mae_z (7-25s)：~0.024m（始终稳定）
+
+##### 报告中如何解释这套参数调优
+
+可以按下面的因果链写：
+
+1. GPS 是平面方向的唯一传感器（1 Hz）
+2. `var_gps_x/y` 越小 → GPS 位置 correction 的 Kalman gain 越大 → 滤波器更快跟上真实位置
+3. 过低的 `var_gps`（如 0.10）会让 GPS 随机噪声的跳变太强，反而变差
+4. 在低 `var_gps=0.15` 条件下，有限差分 GPS 速度伪量测也变得有效：
+   - `var_gps` 低 → 速度方差被约束得更小 → velocity correction 的 Kalman gain 更大
+   - 速度状态更准确 → 两次 GPS correction 之间的位置 prediction drift 更小 → 锯齿更小
+5. `var_imu_x/y` 控制两次 GPS 之间的 prediction 速度发散率：
+   - 理论上更低的 var_imu 可以进一步减少锯齿
+   - 但单次实验显示 imu=2.0 的 x/y 平衡不如 imu=3.0 稳定
+   - 目前保留 imu=3.0 作为默认，但记录 imu=2.0 的 mae_x=0.196 结果作为对比
+
