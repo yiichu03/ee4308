@@ -1,0 +1,14 @@
+input_path: /ws/ee4308/tmp/proj2_param_sweeps/xy_logic_run2/pseudo_off/aligned_pose_error.csv
+samples: 1201
+
+Mean absolute error:
+- x: 0.438205 m
+- y: 0.344790 m
+- z: 0.019066 m
+- yaw: 0.024819 rad
+
+RMSE:
+- x: 0.533553 m
+- y: 0.453989 m
+- z: 0.024217 m
+- yaw: 0.025517 rad

@@ -1,0 +1,15 @@
+input_path: /ws/ee4308/tmp/proj2_param_sweeps/xy_run2/current_xy/aligned_pose_error.csv
+samples: 1201
+
+Mean absolute error:
+- x: 0.505457 m
+- y: 0.436904 m
+- z: 0.020877 m
+- yaw: 0.014234 rad
+
+RMSE:
+- x: 0.624771 m
+- y: 0.546777 m
+- z: 0.025738 m
+- yaw: 0.015083 rad
+Wrote plots and summaries to /ws/ee4308/tmp/proj2_param_sweeps/xy_run2/current_xy/plots

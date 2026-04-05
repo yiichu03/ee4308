@@ -1,0 +1,11 @@
+1. best_so_far | aligned_score=0.644 | aligned w10_18 mae(x,y,z)=(0.446, 0.160, 0.020) | aligned w7_25 mae_z=0.018
+2. refine_gps_0p35__imu_3p5 | aligned_score=0.673 | aligned w10_18 mae(x,y,z)=(0.439, 0.191, 0.019) | aligned w7_25 mae_z=0.024
+3. refine_gps_0p40__imu_3p5 | aligned_score=0.691 | aligned w10_18 mae(x,y,z)=(0.546, 0.110, 0.017) | aligned w7_25 mae_z=0.017
+4. refine_gps_0p45__imu_3p5 | aligned_score=0.698 | aligned w10_18 mae(x,y,z)=(0.424, 0.234, 0.021) | aligned w7_25 mae_z=0.018
+5. refine_gps_0p45__imu_3p0 | aligned_score=0.712 | aligned w10_18 mae(x,y,z)=(0.400, 0.257, 0.028) | aligned w7_25 mae_z=0.027
+6. refine_gps_0p35__imu_2p5 | aligned_score=0.762 | aligned w10_18 mae(x,y,z)=(0.502, 0.192, 0.036) | aligned w7_25 mae_z=0.032
+7. refine_gps_0p45__imu_2p5 | aligned_score=0.763 | aligned w10_18 mae(x,y,z)=(0.507, 0.206, 0.026) | aligned w7_25 mae_z=0.023
+8. refine_gps_0p40__imu_3p0 | aligned_score=0.791 | aligned w10_18 mae(x,y,z)=(0.489, 0.259, 0.019) | aligned w7_25 mae_z=0.023
+9. refine_gps_0p35__imu_3p0 | aligned_score=0.844 | aligned w10_18 mae(x,y,z)=(0.624, 0.166, 0.028) | aligned w7_25 mae_z=0.026
+10. current_xy | aligned_score=0.874 | aligned w10_18 mae(x,y,z)=(0.647, 0.178, 0.025) | aligned w7_25 mae_z=0.024
+11. refine_gps_0p40__imu_2p5 | aligned_score=0.887 | aligned w10_18 mae(x,y,z)=(0.717, 0.103, 0.034) | aligned w7_25 mae_z=0.033

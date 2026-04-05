@@ -1519,3 +1519,353 @@ python3 tools/run_proj2_xy_sweep.py \
 - 每个 case 的 `plots/error_vs_time.png`
 
 后面把 `summary.csv` 路径给我，我就可以继续帮你筛哪组平面参数最值得保留。
+
+#### 2026-04-05：对外部建议的判断，以及本轮实际修改
+
+外部建议的大方向是有道理的，但要区分“值得现在立刻改”的内容和“原理上对、但当前阶段不该先做”的内容。
+
+我对那份建议的判断是：
+
+- “`x/y` 的问题更像 estimator 结构 + 调参问题，而不是单点 bug”这个判断是对的
+- “先盯 `callbackSubGPS_()` 和 `callbackSubIMU_()`”这个判断是对的
+- “先扫 `var_gps_x/y` 和 `var_imu_x/y`”这个优先级是对的
+- “GPS 差分速度伪量测可以作为二阶段尝试”这个说法也对
+- 但“现在就把 GPS 差分速度 correction 重新加回去”我不同意，因为我已经试过一轮，收益不够稳定，解释成本也更高
+
+所以本轮我只改了三类低风险、但确实有帮助的东西。
+
+1. 统一 estimator 发布出来的时间戳口径
+
+之前 `callbackSubIMU_()` 的 prediction 用的是 `msg.header.stamp` 推进状态，但 `callbackTimer()` 发布 `/drone/odom` 时用的是 `this->now()`。
+
+这会带来一个问题：
+
+- estimator 内部状态对应的是“最近一次传感器更新时间”
+- 但发布出去的 topic 时间戳对应的是“timer 触发时间”
+
+这样在后处理里按 topic 时间戳对齐 `/drone/odom` 和 `/drone/true_odom` 时，会额外引入一层表观 lag。
+
+所以现在改成了：
+
+- estimator 维护 `latest_state_stamp_`
+- 每次 IMU prediction 或 GPS / sonar / magnet / baro correction 成功后，都把它更新成对应 message 的 `header.stamp`
+- 发布 odom 时用 `latest_state_stamp_`
+
+这不会神奇地消灭真实 lag，但会让图上的 lag 更可信，不会再混进一层“时间戳口径不一致”的假延迟。
+
+2. 把 correction 的协方差更新改成 Joseph form
+
+之前的更新写法是最简形式：
+
+```text
+P = P - K H P
+```
+
+这种写法在数值上比较容易让协方差矩阵失去严格对称性，长期运行时会让滤波器显得过度自信。
+
+现在改成了 Joseph form：
+
+```text
+P = (I - K H) P (I - K H)^T + K R K^T
+```
+
+并且在 prediction / correction 后都做一次：
+
+```text
+P = 0.5 * (P + P^T)
+```
+
+这类改动通常不会直接把 lag 变没，但它是更稳、更规范的 EKF 实现方式，也更符合报告里“实现是严谨的”这个方向。
+
+3. 补了平面 lag 诊断用的 GPS innovation 临时日志
+
+现在在 `callbackSubGPS_()` 里会打 `TMP LOG`，内容包括：
+
+- `gps innov_xy`
+- 当前 `est_xy`
+- 当前 `gps_xy`
+- 当前 `vel_xy`
+
+这样做的目的不是为了最后提交时保留日志，而是为了回答一个很具体的问题：
+
+- 是不是 prediction 先带着旧的 `vx/vy` 慢慢漂
+- 然后每次 GPS 到来时，再把位置猛地往回拽
+
+如果 log 里长期出现同号、周期性回拉的 `innov_x / innov_y`，那就能更有把握地证明我们现在看到的锯齿和 lag，确实来自“简化 prediction + 位置型 GPS correction”的组合。
+
+#### 本轮没有做的事，以及为什么没做
+
+这轮没有把“相邻两帧 GPS 差分出速度，再纠正 `vx / vy`”重新加回代码里。
+
+原因不是它一定错误，而是：
+
+- 我之前已经做过一次原型验证
+- 它不是完全没改善，但收益不够稳定
+- 它对 noisy GPS 差分很敏感
+- 放进报告里也不如“参数调优 + 时间戳修正 + 更规范的协方差更新”容易解释
+
+所以当前更稳的路线仍然是：
+
+1. 先让时间戳和协方差实现更规范
+2. 再继续扫 `var_gps_x/y` 和 `var_imu_x/y`
+3. 如果参数扫完 lag 仍然明显，再把速度伪量测当成第二阶段尝试
+
+#### 2026-04-05：`xy_run3` 结果解读
+
+这一轮使用的命令是：
+
+```bash
+source /opt/ros/jazzy/setup.bash
+cd /ws/ee4308
+python3 tools/run_proj2_xy_sweep.py \
+  --duration 40 \
+  --output-root tmp/proj2_param_sweeps/xy_run3
+```
+
+结果里最重要的结论，不是“第 1 名到底是谁”，而是下面这件事：
+
+- `best_so_far` 和 `current_xy` 实际上是同一组参数
+
+也就是：
+
+- `var_gps_x = var_gps_y = 0.4`
+- `var_imu_x = var_imu_y = 3.0`
+
+这组参数也已经是当前 [proj2.yaml](/home/liuyi/projects/ee4308_proj2/src/ee4308_bringup/params/proj2.yaml) 里的默认值。
+
+但在这轮 sweep 里：
+
+- `best_so_far` 的 `aligned_score = 0.644`
+- `current_xy` 的 `aligned_score = 0.874`
+
+这说明即使参数完全相同，单次 run 的结果也会有明显波动。原因通常来自：
+
+- 传感器噪声
+- flight path 某些阶段的细微时序差异
+- correction 与 prediction 的耦合在不同 run 里被放大或缩小
+
+所以这里不能把单次排名机械地理解成“0.644 一定严格优于 0.874 对应的参数”，因为它们本来就是同一组参数。
+
+这件事反过来也说明：
+
+- 当前 `proj2.yaml` 里的平面参数已经进入“比较合理”的区间
+- 接下来更应该看“重复跑时的稳定性”，而不是继续大范围扫很多新参数
+
+#### 这一轮里最值得关注的几组
+
+1. `var_gps_x/y = 0.4`，`var_imu_x/y = 3.0`
+
+这是当前默认值，也是我目前最建议保留的 baseline。
+
+原因：
+
+- 演示窗口 `10~18s` 的 `x` 误差已经比早期版本明显下降
+- `z` 仍然保持很稳
+- 参数含义容易解释
+- 代码里也已经同步成默认配置
+
+2. `var_gps_x/y = 0.35`，`var_imu_x/y = 3.5`
+
+这一组的整体误差很强：
+
+- `aligned_all_mae_x = 0.319`
+- `aligned_all_mae_y = 0.383`
+
+从“全程平均误差”看，它甚至比当前 baseline 更漂亮。
+
+但它不是当前首选的原因是：
+
+- 单次 run 与单次 run 之间已经有明显波动
+- 它虽然全程平均更强，但演示窗口和总分未必稳定压过 baseline
+- 如果没有再做重复试验，就不值得贸然把默认参数换掉
+
+3. `var_gps_x/y = 0.4`，`var_imu_x/y = 3.5`
+
+这一组很有意思：
+
+- `y` 非常好
+- 但 `x` 会更差一些
+
+它更像是在“跟手程度”和“平滑程度”之间，往另一个方向偏了一点。可以保留做对照，但不建议直接取代 baseline。
+
+#### 从 `TMP LOG gps innov_xy` 看到了什么
+
+这轮 log 继续支持之前的判断：
+
+- 当前问题确实更像“prediction 慢、GPS 周期性回拉”
+- 而不是坐标系写反、ECEF 变换错误这种硬 bug
+
+例如：
+
+- `current_xy` 里能看到比较大的 innovation，例如 `innov_x ≈ 0.717`、`innov_y ≈ 0.550`
+- `best_so_far` 和 `refine_gps_0p40__imu_3p5` 里，大多数 innovation 明显更收敛，更多落在 `0.1 ~ 0.3` 量级
+
+这说明改完时间戳和协方差更新之后，当前剩下的主要问题仍然是平面融合的权重取舍，而不是某个基础公式已经错了。
+
+#### 当前建议
+
+当前建议非常明确：
+
+1. 保留 [proj2.yaml](/home/liuyi/projects/ee4308_proj2/src/ee4308_bringup/params/proj2.yaml) 里的平面参数作为默认值
+2. 不继续大改 estimator 结构
+3. 如果要再验证，只做一个很小的重复性对比：
+
+- baseline：`gps=0.4, imu=3.0`
+- 候选 A：`gps=0.35, imu=3.5`
+- 候选 B：`gps=0.4, imu=3.5`
+
+每组各跑 3 次，再比较平均值和波动范围。
+
+如果 baseline 的平均结果和方差都更稳，就不再继续追求更复杂的平面逻辑；把时间留给实验记录、图表整理和报告会更划算。
+
+#### 2026-04-05：重新审视平面模型，并保守地重加 GPS velocity pseudo-measurement
+
+在继续看平面 lag 时，有一个细节需要先说清楚：
+
+- 当前 GPS correction 并不是“完全不修速度”
+
+虽然代码里对平面状态用的是位置量测模型 `H = [1, 0]`，但由于 `Px_` / `Py_` 里存在位置与速度的协方差，Kalman gain 的第二项一般并不为 0。
+
+这意味着：
+
+- GPS 位置量测本来就会通过协方差，间接拉动 `vx / vy`
+- 当前真正的问题不是“速度完全不可观”
+- 而是“速度的可观性还不够强，而且在转弯/大机动段显得偏慢”
+
+所以，如果要重加 `GPS velocity pseudo-measurement`，正确理解应该是：
+
+- 不是从 0 到 1 新增一个速度观测
+- 而是在现有位置 correction 已经会间接修速度的前提下，再给平面速度补一个保守的、带门控的增强项
+
+#### 这次代码上怎么改
+
+本轮没有去硬改平面 prediction 模型本身，因为在课程规则下：
+
+- 不能直接拿 IMU orientation 当真值姿态
+- 也没有额外可靠的 roll / pitch 估计
+
+所以与其假装“把平面动力学建模得更完整”，不如承认当前 prediction 仍然是近似模型，然后用更保守的 measurement 侧增强来补。
+
+这轮实际代码修改有三部分：
+
+1. 给 `Eigen::Vector2d` 的 correction helper 加了通用观测模型
+
+现在不仅能用 `H = [1, 0]` 修位置，也能用 `H = [0, 1]` 修速度。
+
+2. 在 GPS callback 里加入了 `maybeApplyGPSVelocityCorrection_()`
+
+逻辑是：
+
+- 用相邻两帧 GPS 位置差除以 `dt_gps`，得到原始 `vx / vy`
+- 再做一个一阶低通，避免直接把 noisy 差分速度塞进滤波器
+- 然后分别对 `Xx_(1)` 和 `Xy_(1)` 做速度 correction
+
+3. 整个伪速度量测是带门控的
+
+主要门控包括：
+
+- `dt_gps` 必须落在合理范围内
+- 推出的速度必须是有限值
+- `|v_meas - v_est|` 不能超过阈值
+- velocity measurement variance 不是固定常数，而是按 `2 * var_gps / dt^2` 缩放，并再乘一个保守系数
+
+这样做的目的很明确：
+
+- 只在 GPS 差分速度“看起来还像回事”的时候使用它
+- 避免它变成一个每秒都把平面状态往噪声上拉的坏观测
+
+#### 这一轮的关键参数
+
+新增的 estimator 参数有：
+
+- `gps_velocity_alpha`
+- `gps_velocity_variance_scale`
+- `gps_velocity_min_variance`
+- `gps_velocity_max_innovation`
+- `gps_velocity_min_dt`
+- `gps_velocity_max_dt`
+
+当前默认值写在 [proj2.yaml](/home/liuyi/projects/ee4308_proj2/src/ee4308_bringup/params/proj2.yaml)。
+
+其中最关键的是：
+
+- `gps_velocity_variance_scale`
+
+它控制“这个伪速度量测到底要被信多少”。
+
+约定是：
+
+- `gps_velocity_variance_scale <= 0` 时，相当于关闭这条逻辑
+- 值越小，代表越相信伪速度量测
+- 值越大，代表越保守
+
+#### 这轮实际对比：`xy_logic_run2`
+
+这轮使用的对比命令是：
+
+```bash
+source /opt/ros/jazzy/setup.bash
+cd /ws/ee4308
+python3 tools/run_proj2_param_sweep.py \
+  --no-default-cases \
+  --duration 40 \
+  --output-root tmp/proj2_param_sweeps/xy_logic_run2 \
+  --case pseudo_off:var_gps_x=0.4,var_gps_y=0.4,var_imu_x=3.0,var_imu_y=3.0,gps_velocity_variance_scale=0.0 \
+  --case pseudo_default:var_gps_x=0.4,var_gps_y=0.4,var_imu_x=3.0,var_imu_y=3.0,gps_velocity_variance_scale=1.0,gps_velocity_alpha=0.6 \
+  --case pseudo_stronger:var_gps_x=0.4,var_gps_y=0.4,var_imu_x=3.0,var_imu_y=3.0,gps_velocity_variance_scale=0.5,gps_velocity_alpha=0.8 \
+  --case pseudo_weaker:var_gps_x=0.4,var_gps_y=0.4,var_imu_x=3.0,var_imu_y=3.0,gps_velocity_variance_scale=1.5,gps_velocity_alpha=0.6
+```
+
+结果很清楚：
+
+- `pseudo_default`：`aligned_score = 0.628`
+- `pseudo_off`：`aligned_score = 0.645`
+- `pseudo_stronger`：`aligned_score = 0.903`
+- `pseudo_weaker`：`aligned_score = 0.997`
+
+这说明：
+
+- 这条逻辑不是完全没用
+- 但它只能工作在一个比较保守的区间里
+- 一旦更激进或者更保守，都会明显变差
+
+从这轮结果看，当前最合理的选择就是：
+
+- 保留 `pseudo_default`
+- 不再继续把它调得更强
+- 也不把它完全关掉
+
+#### 这轮结果应该怎么理解
+
+最值得注意的是：
+
+- `pseudo_default` 相比 `pseudo_off`，整体分数更好
+- 说明“保守的伪速度量测”确实带来了收益
+
+但它的收益不是“所有轴都一起变好”。
+
+更准确地说：
+
+- 它主要改善了平面里最拖后腿的那一部分表现
+- 但不同 run 里，`x` 和 `y` 的改善分配可能并不完全一致
+
+所以这条逻辑适合这样写进报告：
+
+- 它是一个保守的增强项
+- 目的是减少平面 lag
+- 实验表明，适当启用时优于完全关闭
+- 但它对权重很敏感，因此最终保留了偏保守的默认设置
+
+#### 当前结论
+
+当前我对这条逻辑的结论是：
+
+1. 值得保留
+2. 只能保留保守版本
+3. 不值得继续在这条线上做大范围参数搜索
+
+也就是说，到这个阶段，平面 estimator 更合理的状态是：
+
+- 保留当前 `proj2.yaml` 里的 `gps_velocity_*` 默认值
+- 把它当作“平面 lag 的小幅增强补丁”
+- 然后把主要精力转回实验记录、结果整理和报告表达

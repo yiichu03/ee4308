@@ -51,13 +51,19 @@ namespace ee4308::drone
         Eigen::Vector3d initial_ECEF_;
         Eigen::Vector3d initial_position_;
         Eigen::Vector3d Ygps_;
+        Eigen::Vector2d last_gps_position_;
+        Eigen::Vector2d filtered_gps_velocity_;
         double Ymagnet_;
         double Ybaro_;
         double Ysonar_;
         double last_predict_time_;
+        rclcpp::Time latest_state_stamp_;
+        rclcpp::Time last_gps_stamp_;
         bool initialized_ecef_;
         bool initialized_baro_;
         bool initialized_magnetic_;
+        bool has_last_gps_measurement_;
+        bool initialized_gps_velocity_;
 
         // Parameters
         std::string frame_id_map_;
@@ -73,6 +79,12 @@ namespace ee4308::drone
         double var_baro_;
         double var_sonar_;
         double var_magnet_;
+        double gps_velocity_alpha_;
+        double gps_velocity_variance_scale_;
+        double gps_velocity_min_variance_;
+        double gps_velocity_max_innovation_;
+        double gps_velocity_min_dt_;
+        double gps_velocity_max_dt_;
         bool verbose_;
         bool use_ground_truth_;
 
@@ -95,6 +107,8 @@ namespace ee4308::drone
             const double &sin_lat, const double &cos_lat,
             const double &sin_lon, const double &cos_lon,
             const double &alt);
+
+        void maybeApplyGPSVelocityCorrection_(const rclcpp::Time &stamp);
 
         void callbackSubGPS_(const sensor_msgs::msg::NavSatFix msg);
 

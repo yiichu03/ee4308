@@ -1,0 +1,15 @@
+input_path: /ws/ee4308/tmp/proj2_param_sweeps/xy_run2/refine_gps_0p35__imu_3p0/aligned_pose_error.csv
+samples: 1201
+
+Mean absolute error:
+- x: 0.376147 m
+- y: 0.375980 m
+- z: 0.020622 m
+- yaw: 0.017068 rad
+
+RMSE:
+- x: 0.485283 m
+- y: 0.532687 m
+- z: 0.025119 m
+- yaw: 0.017705 rad
+Wrote plots and summaries to /ws/ee4308/tmp/proj2_param_sweeps/xy_run2/refine_gps_0p35__imu_3p0/plots

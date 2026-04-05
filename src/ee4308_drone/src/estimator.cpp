@@ -7,26 +7,45 @@ namespace
     constexpr double SONAR_MAX_INNOVATION = 1.0;
     constexpr double MAX_ABS_VERTICAL_ACCEL = 1.5;
 
+    template <typename MatrixType>
+    void symmetrizeCovariance(MatrixType &P)
+    {
+        P = 0.5 * (P + P.transpose());
+    }
+
+    void applyScalarCorrection(
+        Eigen::Vector2d &X,
+        Eigen::Matrix2d &P,
+        const double measurement,
+        const double variance,
+        const Eigen::RowVector2d &H)
+    {
+        if (!std::isfinite(measurement) || !std::isfinite(variance))
+            return;
+
+        const double innovation = measurement - (H * X)(0, 0);
+        const double innovation_covariance = (H * P * H.transpose())(0, 0) + variance;
+        if (!std::isfinite(innovation_covariance) || std::abs(innovation_covariance) < ee4308::THRES)
+            return;
+
+        const Eigen::Matrix2d P_prior = P;
+        const Eigen::Vector2d K = P * H.transpose() / innovation_covariance;
+        X = X + K * innovation;
+        const Eigen::Matrix2d I = Eigen::Matrix2d::Identity();
+        const Eigen::Matrix2d KH = K * H;
+        P = (I - KH) * P_prior * (I - KH).transpose() + K * variance * K.transpose();
+        symmetrizeCovariance(P);
+    }
+
     void applyScalarCorrection(
         Eigen::Vector2d &X,
         Eigen::Matrix2d &P,
         const double measurement,
         const double variance)
     {
-        if (!std::isfinite(measurement) || !std::isfinite(variance))
-            return;
-
         Eigen::RowVector2d H;
         H << 1.0, 0.0;
-
-        const double innovation = measurement - X(0);
-        const double innovation_covariance = (H * P * H.transpose())(0, 0) + variance;
-        if (!std::isfinite(innovation_covariance) || std::abs(innovation_covariance) < ee4308::THRES)
-            return;
-
-        const Eigen::Vector2d K = P * H.transpose() / innovation_covariance;
-        X = X + K * innovation;
-        P = P - K * H * P;
+        applyScalarCorrection(X, P, measurement, variance, H);
     }
 
     void applyAngularCorrection(
@@ -46,10 +65,14 @@ namespace
         if (!std::isfinite(innovation_covariance) || std::abs(innovation_covariance) < ee4308::THRES)
             return;
 
+        const Eigen::Matrix2d P_prior = P;
         const Eigen::Vector2d K = P * H.transpose() / innovation_covariance;
         X = X + K * innovation;
         X(0) = ee4308::limitAngle(X(0));
-        P = P - K * H * P;
+        const Eigen::Matrix2d I = Eigen::Matrix2d::Identity();
+        const Eigen::Matrix2d KH = K * H;
+        P = (I - KH) * P_prior * (I - KH).transpose() + K * variance * K.transpose();
+        symmetrizeCovariance(P);
     }
 
     void applyScalarCorrection(
@@ -67,9 +90,13 @@ namespace
         if (!std::isfinite(innovation_covariance) || std::abs(innovation_covariance) < ee4308::THRES)
             return;
 
+        const Eigen::Matrix3d P_prior = P;
         const Eigen::Vector3d K = P * H.transpose() / innovation_covariance;
         X = X + K * innovation;
-        P = P - K * H * P;
+        const Eigen::Matrix3d I = Eigen::Matrix3d::Identity();
+        const Eigen::Matrix3d KH = K * H;
+        P = (I - KH) * P_prior * (I - KH).transpose() + K * variance * K.transpose();
+        symmetrizeCovariance(P);
     }
 }
 
@@ -92,6 +119,12 @@ namespace ee4308::drone
         this->var_baro_ = ee4308::getParameter<double>(this, "var_baro", 0.2).as_double();
         this->var_sonar_ = ee4308::getParameter<double>(this, "var_sonar", 0.2).as_double();
         this->var_magnet_ = ee4308::getParameter<double>(this, "var_magnet", 0.2).as_double();
+        this->gps_velocity_alpha_ = ee4308::getParameter<double>(this, "gps_velocity_alpha", 0.6).as_double();
+        this->gps_velocity_variance_scale_ = ee4308::getParameter<double>(this, "gps_velocity_variance_scale", 1.0).as_double();
+        this->gps_velocity_min_variance_ = ee4308::getParameter<double>(this, "gps_velocity_min_variance", 0.4).as_double();
+        this->gps_velocity_max_innovation_ = ee4308::getParameter<double>(this, "gps_velocity_max_innovation", 1.5).as_double();
+        this->gps_velocity_min_dt_ = ee4308::getParameter<double>(this, "gps_velocity_min_dt", 0.2).as_double();
+        this->gps_velocity_max_dt_ = ee4308::getParameter<double>(this, "gps_velocity_max_dt", 2.0).as_double();
         this->verbose_ = ee4308::getParameter<bool>(this, "verbose", true).as_bool();
         this->frame_id_map_ = ee4308::getParameter<std::string>(this, "map_frame_id", "map").as_string();
         this->frame_id_drone_ = ee4308::getParameter<std::string>(this, "drone_frame_id", "drone/base_link").as_string();
@@ -130,19 +163,131 @@ namespace ee4308::drone
         this->Pa_ = Eigen::Matrix2d::Constant(1e3);
         this->initial_ECEF_ << NAN, NAN, NAN;
         this->Ygps_ << NAN, NAN, NAN;
+        this->last_gps_position_ << NAN, NAN;
+        this->filtered_gps_velocity_.setZero();
         this->Ymagnet_ = NAN;
         this->Ybaro_ = NAN;
         this->Ysonar_ = NAN;
         this->est_path_.header.frame_id = this->frame_id_map_;
 
         this->last_predict_time_ = this->now().seconds();
+        this->latest_state_stamp_ = this->now();
         this->initialized_ecef_ = false;
         this->initialized_baro_ = false;
         this->initialized_magnetic_ = false;
+        this->has_last_gps_measurement_ = false;
+        this->initialized_gps_velocity_ = false;
 
         this->timer_ = this->create_timer(
             1s / this->frequency_,
             std::bind(&Estimator::callbackTimer, this));
+    }
+
+    void Estimator::maybeApplyGPSVelocityCorrection_(const rclcpp::Time &stamp)
+    {
+        if (gps_velocity_variance_scale_ <= 0.0)
+            return;
+
+        const Eigen::Vector2d gps_xy = Ygps_.head<2>();
+        if (!std::isfinite(gps_xy(0)) || !std::isfinite(gps_xy(1)))
+            return;
+
+        if (!has_last_gps_measurement_)
+        {
+            last_gps_position_ = gps_xy;
+            last_gps_stamp_ = stamp;
+            has_last_gps_measurement_ = true;
+            return;
+        }
+
+        const double dt_gps = (stamp - last_gps_stamp_).seconds();
+        const Eigen::Vector2d delta_xy = gps_xy - last_gps_position_;
+        last_gps_position_ = gps_xy;
+        last_gps_stamp_ = stamp;
+
+        if (!std::isfinite(dt_gps) || dt_gps < gps_velocity_min_dt_ || dt_gps > gps_velocity_max_dt_)
+        {
+            initialized_gps_velocity_ = false;
+            RCLCPP_INFO_THROTTLE(
+                this->get_logger(),
+                *this->get_clock(),
+                1000,
+                "TMP LOG gps vel pseudo skipped: dt=%.3f outside [%.3f, %.3f]",
+                dt_gps,
+                gps_velocity_min_dt_,
+                gps_velocity_max_dt_);
+            return;
+        }
+
+        const Eigen::Vector2d raw_gps_velocity = delta_xy / dt_gps;
+        if (!std::isfinite(raw_gps_velocity(0)) || !std::isfinite(raw_gps_velocity(1)))
+            return;
+
+        if (!initialized_gps_velocity_)
+        {
+            filtered_gps_velocity_ = raw_gps_velocity;
+            initialized_gps_velocity_ = true;
+        }
+        else
+        {
+            filtered_gps_velocity_ =
+                gps_velocity_alpha_ * raw_gps_velocity +
+                (1.0 - gps_velocity_alpha_) * filtered_gps_velocity_;
+        }
+
+        Eigen::RowVector2d Hvel;
+        Hvel << 0.0, 1.0;
+
+        const double vel_variance_x = std::max(
+            gps_velocity_min_variance_,
+            gps_velocity_variance_scale_ * 2.0 * var_gps_x_ / (dt_gps * dt_gps));
+        const double vel_variance_y = std::max(
+            gps_velocity_min_variance_,
+            gps_velocity_variance_scale_ * 2.0 * var_gps_y_ / (dt_gps * dt_gps));
+
+        const double vel_innov_x = filtered_gps_velocity_(0) - Xx_(1);
+        const double vel_innov_y = filtered_gps_velocity_(1) - Xy_(1);
+
+        bool applied_x = false;
+        bool applied_y = false;
+        if (std::abs(vel_innov_x) <= gps_velocity_max_innovation_)
+        {
+            applyScalarCorrection(Xx_, Px_, filtered_gps_velocity_(0), vel_variance_x, Hvel);
+            applied_x = true;
+        }
+        if (std::abs(vel_innov_y) <= gps_velocity_max_innovation_)
+        {
+            applyScalarCorrection(Xy_, Py_, filtered_gps_velocity_(1), vel_variance_y, Hvel);
+            applied_y = true;
+        }
+
+        if (applied_x || applied_y)
+        {
+            RCLCPP_INFO_THROTTLE(
+                this->get_logger(),
+                *this->get_clock(),
+                1000,
+                "TMP LOG gps vel pseudo raw=(%.3f, %.3f) filt=(%.3f, %.3f) innov_v=(%.3f, %.3f) apply=(%d,%d)",
+                raw_gps_velocity(0),
+                raw_gps_velocity(1),
+                filtered_gps_velocity_(0),
+                filtered_gps_velocity_(1),
+                vel_innov_x,
+                vel_innov_y,
+                applied_x,
+                applied_y);
+        }
+        else
+        {
+            RCLCPP_INFO_THROTTLE(
+                this->get_logger(),
+                *this->get_clock(),
+                1000,
+                "TMP LOG gps vel pseudo rejected: innov_v=(%.3f, %.3f) threshold=%.3f",
+                vel_innov_x,
+                vel_innov_y,
+                gps_velocity_max_innovation_);
+        }
     }
 
     // ================================ GPS sub callback / EKF Correction ========================================
@@ -167,6 +312,7 @@ namespace ee4308::drone
     void Estimator::callbackSubGPS_(const sensor_msgs::msg::NavSatFix msg)
     { // avoiding const & due to possibly long calcs.
         constexpr double DEG2RAD = M_PI / 180;
+        const rclcpp::Time stamp(msg.header.stamp);
         double lat = msg.latitude * DEG2RAD;  
         double lon = msg.longitude * DEG2RAD; 
         double alt = msg.altitude;
@@ -187,6 +333,10 @@ namespace ee4308::drone
             initial_ECEF_ = getECEF_(sin_lat, cos_lat, sin_lon, cos_lon, alt);
             Ygps_ = initial_position_;
             initialized_ecef_ = true;
+            last_gps_position_ = Ygps_.head<2>();
+            last_gps_stamp_ = stamp;
+            has_last_gps_measurement_ = true;
+            latest_state_stamp_ = stamp;
             return;
         }
 
@@ -223,11 +373,29 @@ namespace ee4308::drone
             0.0, 0.0, -1.0;
         Ygps_ = R_m_n * ned + initial_position_;
 
+        const double innov_x = Ygps_(0) - Xx_(0);
+        const double innov_y = Ygps_(1) - Xy_(0);
+        RCLCPP_INFO_THROTTLE(
+            this->get_logger(),
+            *this->get_clock(),
+            1000,
+            "TMP LOG gps innov_xy=(%.3f, %.3f) est_xy=(%.3f, %.3f) gps_xy=(%.3f, %.3f) vel_xy=(%.3f, %.3f)",
+            innov_x,
+            innov_y,
+            Xx_(0),
+            Xy_(0),
+            Ygps_(0),
+            Ygps_(1),
+            Xx_(1),
+            Xy_(1));
+
         applyScalarCorrection(Xx_, Px_, Ygps_(0), var_gps_x_);
         applyScalarCorrection(Xy_, Py_, Ygps_(1), var_gps_y_);
+        maybeApplyGPSVelocityCorrection_(stamp);
         Eigen::RowVector3d Hz;
         Hz << 1.0, 0.0, 0.0;
         applyScalarCorrection(Xz_, Pz_, Ygps_(2), var_gps_z_, Hz);
+        this->latest_state_stamp_ = stamp;
     }
 
     // ================================ Sonar sub callback / EKF Correction ========================================
@@ -297,6 +465,7 @@ namespace ee4308::drone
         Eigen::RowVector3d Hsonar;
         Hsonar << 1.0, 0.0, 0.0;
         applyScalarCorrection(Xz_, Pz_, Ysonar_, var_sonar_, Hsonar);
+        this->latest_state_stamp_ = rclcpp::Time(msg.header.stamp);
     }
 
     // ================================ Magnetic sub callback / EKF Correction ========================================
@@ -331,6 +500,7 @@ namespace ee4308::drone
         Ymagnet_ = ee4308::limitAngle(std::atan2(-my, mx));
         initialized_magnetic_ = true;
         applyAngularCorrection(Xa_, Pa_, Ymagnet_, var_magnet_);
+        this->latest_state_stamp_ = rclcpp::Time(msg.header.stamp);
     }
 
     // ================================ Baro sub callback / EKF Correction ========================================
@@ -372,6 +542,7 @@ namespace ee4308::drone
         Eigen::RowVector3d Hbaro;
         Hbaro << 1.0, 0.0, 1.0;
         applyScalarCorrection(Xz_, Pz_, Ybaro_, var_baro_, Hbaro);
+        this->latest_state_stamp_ = rclcpp::Time(msg.header.stamp);
     }
 
     // ================================ IMU sub callback / EKF Prediction ========================================
@@ -440,9 +611,11 @@ namespace ee4308::drone
 
         Xx_ = F * Xx_ + W * ax;
         Px_ = F * Px_ * F.transpose() + Wx * Qxy * Wx.transpose();
+        symmetrizeCovariance(Px_);
 
         Xy_ = F * Xy_ + W * ay;
         Py_ = F * Py_ * F.transpose() + Wy * Qxy * Wy.transpose();
+        symmetrizeCovariance(Py_);
 
         Eigen::Matrix3d Fz = Eigen::Matrix3d::Identity();
         Fz(0, 1) = dt;
@@ -454,6 +627,7 @@ namespace ee4308::drone
 
         Xz_ = Fz * Xz_ + Wz * az;
         Pz_ = Fz * Pz_ * Fz.transpose() + Wz * var_imu_z_ * Wz.transpose();
+        symmetrizeCovariance(Pz_);
 
         Eigen::Matrix2d Fa;
         Fa << 1.0, 0.0,
@@ -466,6 +640,8 @@ namespace ee4308::drone
         Xa_ = Fa * Xa_ + Wa * uyaw;
         Xa_(0) = ee4308::limitAngle(Xa_(0));
         Pa_ = Fa * Pa_ * Fa.transpose() + Wa * var_imu_a_ * Wa.transpose();
+        symmetrizeCovariance(Pa_);
+        this->latest_state_stamp_ = tnow;
     }
 
     void Estimator::callbackSubTrueOdom_(const nav_msgs::msg::Odometry msg)
@@ -531,9 +707,9 @@ namespace ee4308::drone
             // odom is already taken.
             nav_msgs::msg::Odometry odom;
 
-            odom.header.stamp = this->now();
-            odom.child_frame_id = "";     //; std::string(this->get_namespace()) + "/base_footprint";
-            odom.header.frame_id = "map"; //; std::string(this->get_namespace()) + "/odom";
+            odom.header.stamp = this->latest_state_stamp_;
+            odom.child_frame_id = this->frame_id_drone_;
+            odom.header.frame_id = this->frame_id_map_;
 
             odom.pose.pose.position.x = Xx_[0];
             odom.pose.pose.position.y = Xy_[0];

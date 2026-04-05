@@ -9,16 +9,19 @@ from pathlib import Path
 
 DEFAULT_CASES = [
     "current_xy:",
-    "gps_xy_0p2:var_gps_x=0.2,var_gps_y=0.2",
-    "gps_xy_0p3:var_gps_x=0.3,var_gps_y=0.3",
-    "gps_xy_0p4:var_gps_x=0.4,var_gps_y=0.4",
-    "gps_xy_0p7:var_gps_x=0.7,var_gps_y=0.7",
-    "imu_xy_3p0:var_imu_x=3.0,var_imu_y=3.0",
-    "imu_xy_4p0:var_imu_x=4.0,var_imu_y=4.0",
-    "imu_xy_6p0:var_imu_x=6.0,var_imu_y=6.0",
-    "combo_gps_0p3__imu_3p0:var_gps_x=0.3,var_gps_y=0.3,var_imu_x=3.0,var_imu_y=3.0",
-    "combo_gps_0p3__imu_4p0:var_gps_x=0.3,var_gps_y=0.3,var_imu_x=4.0,var_imu_y=4.0",
-    "combo_gps_0p4__imu_3p0:var_gps_x=0.4,var_gps_y=0.4,var_imu_x=3.0,var_imu_y=3.0",
+    "best_so_far:var_gps_x=0.4,var_gps_y=0.4,var_imu_x=3.0,var_imu_y=3.0",
+
+    "refine_gps_0p35__imu_2p5:var_gps_x=0.35,var_gps_y=0.35,var_imu_x=2.5,var_imu_y=2.5",
+    "refine_gps_0p35__imu_3p0:var_gps_x=0.35,var_gps_y=0.35,var_imu_x=3.0,var_imu_y=3.0",
+    "refine_gps_0p35__imu_3p5:var_gps_x=0.35,var_gps_y=0.35,var_imu_x=3.5,var_imu_y=3.5",
+
+    "refine_gps_0p40__imu_2p5:var_gps_x=0.40,var_gps_y=0.40,var_imu_x=2.5,var_imu_y=2.5",
+    "refine_gps_0p40__imu_3p0:var_gps_x=0.40,var_gps_y=0.40,var_imu_x=3.0,var_imu_y=3.0",
+    "refine_gps_0p40__imu_3p5:var_gps_x=0.40,var_gps_y=0.40,var_imu_x=3.5,var_imu_y=3.5",
+
+    "refine_gps_0p45__imu_2p5:var_gps_x=0.45,var_gps_y=0.45,var_imu_x=2.5,var_imu_y=2.5",
+    "refine_gps_0p45__imu_3p0:var_gps_x=0.45,var_gps_y=0.45,var_imu_x=3.0,var_imu_y=3.0",
+    "refine_gps_0p45__imu_3p5:var_gps_x=0.45,var_gps_y=0.45,var_imu_x=3.5,var_imu_y=3.5",
 ]
 
 
