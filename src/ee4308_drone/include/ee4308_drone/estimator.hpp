@@ -79,12 +79,19 @@ namespace ee4308::drone
         double var_baro_;
         double var_sonar_;
         double var_magnet_;
+        double gps_position_max_innovation_xy_;
+        double gps_position_max_innovation_z_;
+        double gps_position_max_sigma_;
         double gps_velocity_alpha_;
         double gps_velocity_variance_scale_;
         double gps_velocity_min_variance_;
         double gps_velocity_max_innovation_;
         double gps_velocity_min_dt_;
         double gps_velocity_max_dt_;
+        double magnet_max_innovation_;
+        double magnet_max_sigma_;
+        double baro_max_innovation_;
+        double baro_max_sigma_;
         bool verbose_;
         bool use_ground_truth_;
 

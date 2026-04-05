@@ -1869,3 +1869,64 @@ python3 tools/run_proj2_param_sweep.py \
 - 保留当前 `proj2.yaml` 里的 `gps_velocity_*` 默认值
 - 把它当作“平面 lag 的小幅增强补丁”
 - 然后把主要精力转回实验记录、结果整理和报告表达
+
+#### 2026-04-05：补 GPS / magnet / baro 的软门控
+
+老师在 [proj2.md](/home/liuyi/projects/ee4308_proj2/docs/proj2.md) 里对 correction 的描述重点是：
+
+- correction 是异步发生的
+- 每次量测都要“faithfully update”状态和协方差
+
+这并不意味着“每一条量测都必须无条件接收”。
+
+在实际仿真里，更稳妥的理解应该是：
+
+- 合法、可信的量测就按 Kalman correction 正常更新
+- 明显离谱的 outlier 先拒绝，再等待下一条量测
+
+之前代码里：
+
+- `sonar` 已经有比较强的门控
+- 但 `GPS` 位置 correction、`magnet` yaw correction、`baro` correction 基本还是“只要数值有限就接收”
+
+这会带来两个问题：
+
+- 偶发跳变会把状态突然拉走
+- 这种拉走本身又会在图上表现成更大的锯齿和更难看的“表观 lag”
+
+所以这轮补的是“软门控”而不是“激进拒绝”：
+
+- `GPS x/y/z`：只拒绝 innovation 很大、或者 normalized innovation 很离谱的更新
+- `magnet`：拒绝 yaw innovation 太大的更新
+- `baro`：拒绝和 `z + bias` 明显不一致的更新
+
+注意这里的目标是：
+
+- 优先减少偶发跳变
+- 提升轨迹平滑性和鲁棒性
+
+而不是：
+
+- 直接把系统性的平面 lag 消灭掉
+
+所以对 lag 的影响应该这样理解：
+
+- 如果 lag 里有一部分其实是“outlier 拉走之后又被拉回来”的表观现象，那软门控会有帮助
+- 但如果 lag 的主因是平面 prediction 本身偏慢，或者 `GPS / IMU` 权重关系没调好，那软门控只能间接改善，不能替代平面参数调优
+
+这也是为什么当前更合理的定位是：
+
+- 软门控负责“减少跳变和坏 correction”
+- `gps_velocity_*` 和 `var_gps_x/y, var_imu_x/y` 负责“改善平面跟手程度”
+
+现在新增到 [proj2.yaml](/home/liuyi/projects/ee4308_proj2/src/ee4308_bringup/params/proj2.yaml) 的门控参数包括：
+
+- `gps_position_max_innovation_xy`
+- `gps_position_max_innovation_z`
+- `gps_position_max_sigma`
+- `magnet_max_innovation`
+- `magnet_max_sigma`
+- `baro_max_innovation`
+- `baro_max_sigma`
+
+这些默认值故意设得比较保守，目的是先挡掉明显坏点，而不是把正常 correction 卡掉。
