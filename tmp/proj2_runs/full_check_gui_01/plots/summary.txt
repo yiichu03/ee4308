@@ -1,0 +1,14 @@
+input_path: /ws/ee4308/tmp/proj2_runs/full_check_gui_01/aligned_pose_error.csv
+samples: 17190
+
+Mean absolute error:
+- x: 0.102761 m
+- y: 0.287364 m
+- z: 0.009474 m
+- yaw: 0.003516 rad
+
+RMSE:
+- x: 0.159709 m
+- y: 0.324700 m
+- z: 0.013751 m
+- yaw: 0.004661 rad

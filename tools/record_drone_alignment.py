@@ -7,7 +7,7 @@ import math
 from collections import deque
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Deque, List
+from typing import Deque, List, Optional
 
 import rclpy
 from nav_msgs.msg import Odometry
@@ -34,7 +34,7 @@ def wrap_to_pi(angle: float) -> float:
 
 
 class DroneAlignmentRecorder(Node):
-    def __init__(self, output_path: Path, duration_sec: float, odom_topic: str, true_odom_topic: str) -> None:
+    def __init__(self, output_path: Path, duration_sec: Optional[float], odom_topic: str, true_odom_topic: str) -> None:
         super().__init__("proj2_drone_alignment_recorder")
         self.output_path = output_path
         self.output_path.parent.mkdir(parents=True, exist_ok=True)
@@ -67,7 +67,9 @@ class DroneAlignmentRecorder(Node):
         self.create_subscription(Odometry, odom_topic, self.callback_est_odom, 10)
         self.create_subscription(Odometry, true_odom_topic, self.callback_true_odom, 10)
         # Safety timeout in case topics never start publishing.
-        self.safety_timer = self.create_timer(max(duration_sec + 20.0, 20.0), self.finish_due_to_timeout)
+        self.safety_timer = None
+        if self.duration_sec is not None:
+            self.safety_timer = self.create_timer(max(self.duration_sec + 20.0, 20.0), self.finish_due_to_timeout)
 
     def extract_sample(self, msg: Odometry) -> OdomSample:
         stamp_sec = msg.header.stamp.sec + msg.header.stamp.nanosec * 1e-9
@@ -104,10 +106,16 @@ class DroneAlignmentRecorder(Node):
 
             if self.start_time_est is None:
                 self.start_time_est = est.stamp_sec
-                self.get_logger().info(
-                    f"Started aligned CSV recording at est stamp {self.start_time_est:.3f}s "
-                    f"for {self.duration_sec:.1f}s of estimator data."
-                )
+                if self.duration_sec is None:
+                    self.get_logger().info(
+                        f"Started aligned CSV recording at est stamp {self.start_time_est:.3f}s "
+                        "and will continue until interrupted."
+                    )
+                else:
+                    self.get_logger().info(
+                        f"Started aligned CSV recording at est stamp {self.start_time_est:.3f}s "
+                        f"for {self.duration_sec:.1f}s of estimator data."
+                    )
 
             rel_time = est.stamp_sec - self.start_time_est
             err_yaw = wrap_to_pi(aligned_true.yaw - est.yaw)
@@ -129,7 +137,7 @@ class DroneAlignmentRecorder(Node):
                 ]
             )
             self.file.flush()
-            if rel_time >= self.duration_sec:
+            if self.duration_sec is not None and rel_time >= self.duration_sec:
                 self.get_logger().info(
                     f"Reached requested duration ({self.duration_sec:.1f}s). Finishing recorder."
                 )
@@ -181,10 +189,15 @@ class DroneAlignmentRecorder(Node):
             return
         self.finished = True
         self.flush_pending_estimates()
-        self.get_logger().info(f"Wrote aligned estimate/ground-truth CSV to {self.output_path}")
+        if rclpy.ok():
+            self.get_logger().info(f"Wrote aligned estimate/ground-truth CSV to {self.output_path}")
+        else:
+            print(f"Wrote aligned estimate/ground-truth CSV to {self.output_path}")
         self.file.close()
-        self.destroy_timer(self.safety_timer)
-        rclpy.shutdown()
+        if self.safety_timer is not None:
+            self.destroy_timer(self.safety_timer)
+        if rclpy.ok():
+            rclpy.shutdown()
 
     def finish_due_to_timeout(self) -> None:
         self.get_logger().warning(
@@ -199,23 +212,31 @@ def main() -> None:
         description="Record /drone/odom and /drone/true_odom into an aligned CSV during runtime."
     )
     parser.add_argument("--output", required=True)
-    parser.add_argument("--duration", type=float, default=40.0)
+    parser.add_argument(
+        "--duration",
+        type=float,
+        default=0.0,
+        help="Requested aligned data duration in seconds. Use 0 or a negative value to record until interrupted.",
+    )
     parser.add_argument("--odom-topic", default="/drone/odom")
     parser.add_argument("--true-odom-topic", default="/drone/true_odom")
     args = parser.parse_args()
 
     rclpy.init()
+    duration_sec = args.duration if args.duration > 0.0 else None
     node = DroneAlignmentRecorder(
         output_path=Path(args.output),
-        duration_sec=args.duration,
+        duration_sec=duration_sec,
         odom_topic=args.odom_topic,
         true_odom_topic=args.true_odom_topic,
     )
     try:
         rclpy.spin(node)
+    except KeyboardInterrupt:
+        node.finish()
     finally:
-        if not node.file.closed:
-            node.file.close()
+        if not node.finished:
+            node.finish()
         if rclpy.ok():
             rclpy.shutdown()
 

@@ -16,10 +16,12 @@
   - [proj2.yaml](/home/liuyi/projects/ee4308_proj2/src/ee4308_bringup/params/proj2.yaml)
   - [proj2_gt.yaml](/home/liuyi/projects/ee4308_proj2/src/ee4308_bringup/params/proj2_gt.yaml)
 - 实验与画图工具：
-  - [record_drone_alignment.py](/home/liuyi/projects/ee4308_proj2/tools/record_drone_alignment.py)
-  - [plot_drone_bag.py](/home/liuyi/projects/ee4308_proj2/tools/plot_drone_bag.py)
-  - [run_proj2_param_sweep.py](/home/liuyi/projects/ee4308_proj2/tools/run_proj2_param_sweep.py)
-  - [summarize_proj2_logs.py](/home/liuyi/projects/ee4308_proj2/tools/summarize_proj2_logs.py)
+- [record_drone_alignment.py](/home/liuyi/projects/ee4308_proj2/tools/record_drone_alignment.py)
+- [record_drone_plan.py](/home/liuyi/projects/ee4308_proj2/tools/record_drone_plan.py)
+- [plot_drone_bag.py](/home/liuyi/projects/ee4308_proj2/tools/plot_drone_bag.py)
+- [run_proj2_param_sweep.py](/home/liuyi/projects/ee4308_proj2/tools/run_proj2_param_sweep.py)
+- [run_proj2_full_check.py](/home/liuyi/projects/ee4308_proj2/tools/run_proj2_full_check.py)
+- [summarize_proj2_logs.py](/home/liuyi/projects/ee4308_proj2/tools/summarize_proj2_logs.py)
 
 当前代码层面的原则：
 
@@ -506,7 +508,55 @@ python3 tools/run_proj2_param_sweep.py \
 
 ---
 
-## 11. 最终判断
+## 11. 完整任务验证推荐流程
+
+如果要验证 `behavior + controller + estimator` 的完整联动，而不是只跑固定时长的调参窗口，推荐直接使用：
+
+- [run_proj2_full_check.py](/home/liuyi/projects/ee4308_proj2/tools/run_proj2_full_check.py)
+
+这个脚本会：
+
+- 前台启动 `proj2` 仿真，便于直接观察 Gazebo / RViz。
+- 后台记录 `/drone/odom` 和 `/drone/true_odom` 的对齐 CSV。
+- 可选记录 `/drone/plan`，用于核对 waypoint 切换。
+- 在到达默认时长后自动清理并生成图。
+- 也支持手动 `Ctrl+C` 提前结束。
+
+推荐命令：
+
+```bash
+source /opt/ros/jazzy/setup.bash
+cd /ws/ee4308
+source install/setup.bash
+python3 tools/run_proj2_full_check.py \
+  --run-name full_check_01 \
+  --param-file proj2 \
+  --record-plan
+```
+
+说明：
+
+- 默认 `--duration 150`，适合覆盖当前仿真配置下的一整段任务。
+- 如果观察到无人机已经完成 cycle 并降落，也可以直接按 `Ctrl+C` 提前结束。
+- 如果想完全手动控制时长，可以显式传：
+  - `--duration 0`
+- 输出目录默认是：
+  - [tmp/proj2_runs/full_check_01](/home/liuyi/projects/ee4308_proj2/tmp/proj2_runs/full_check_01)
+
+主要输出包括：
+
+- `aligned_pose_error.csv`
+- `drone_plan.csv`（如果启用了 `--record-plan`）
+- `plots/trajectory_3d.png`
+- `plots/position_vs_time.png`
+- `plots/error_vs_time.png`
+- `plots/summary.txt`
+
+如果只想做数据验证、不需要 GUI，可以额外加 `--headless`。
+
+---
+
+## 12. 最终判断
 
 当前项目的合理策略不是继续追求更复杂的 estimator，而是：
 
