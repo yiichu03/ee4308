@@ -1,0 +1,15 @@
+input_path: /ws/ee4308/tmp/proj2_param_sweeps/vel_fix_run1/vel_fix_gps0p15/aligned_pose_error.csv
+samples: 1201
+
+Mean absolute error:
+- x: 0.187517 m
+- y: 0.180718 m
+- z: 0.016478 m
+- yaw: 0.005716 rad
+
+RMSE:
+- x: 0.252014 m
+- y: 0.246397 m
+- z: 0.021110 m
+- yaw: 0.006634 rad
+Wrote plots and summaries to /ws/ee4308/tmp/proj2_param_sweeps/vel_fix_run1/vel_fix_gps0p15/plots

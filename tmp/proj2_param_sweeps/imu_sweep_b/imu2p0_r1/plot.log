@@ -1,0 +1,15 @@
+input_path: /ws/ee4308/tmp/proj2_param_sweeps/imu_sweep_b/imu2p0_r1/aligned_pose_error.csv
+samples: 1190
+
+Mean absolute error:
+- x: 0.169461 m
+- y: 0.285736 m
+- z: 0.018810 m
+- yaw: 0.019718 rad
+
+RMSE:
+- x: 0.230655 m
+- y: 0.357259 m
+- z: 0.024308 m
+- yaw: 0.020764 rad
+Wrote plots and summaries to /ws/ee4308/tmp/proj2_param_sweeps/imu_sweep_b/imu2p0_r1/plots

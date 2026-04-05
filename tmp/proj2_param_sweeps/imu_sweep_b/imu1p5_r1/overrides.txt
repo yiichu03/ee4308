@@ -1,0 +1,4 @@
+var_gps_x=0.15
+var_gps_y=0.15
+var_imu_x=1.5
+var_imu_y=1.5

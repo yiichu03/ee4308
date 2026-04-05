@@ -1,0 +1,7 @@
+1. gps0p15_repeat | aligned_score=0.330 | aligned w10_18 mae(x,y,z)=(0.230, 0.058, 0.020) | aligned w7_25 mae_z=0.022
+2. gps0p12 | aligned_score=0.381 | aligned w10_18 mae(x,y,z)=(0.235, 0.110, 0.019) | aligned w7_25 mae_z=0.017
+3. gps0p15_imu2p0 | aligned_score=0.402 | aligned w10_18 mae(x,y,z)=(0.196, 0.149, 0.029) | aligned w7_25 mae_z=0.028
+4. gps0p15_imu2p5 | aligned_score=0.423 | aligned w10_18 mae(x,y,z)=(0.281, 0.091, 0.026) | aligned w7_25 mae_z=0.024
+5. gps0p10 | aligned_score=0.438 | aligned w10_18 mae(x,y,z)=(0.199, 0.195, 0.021) | aligned w7_25 mae_z=0.023
+6. gps0p12_no_vel | aligned_score=0.480 | aligned w10_18 mae(x,y,z)=(0.267, 0.168, 0.020) | aligned w7_25 mae_z=0.025
+7. gps0p15_no_vel | aligned_score=0.575 | aligned w10_18 mae(x,y,z)=(0.393, 0.121, 0.028) | aligned w7_25 mae_z=0.032
