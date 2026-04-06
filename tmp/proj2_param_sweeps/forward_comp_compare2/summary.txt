@@ -1,3 +1,0 @@
-1. fc_on_no_gate | aligned_score=0.559 | aligned w10_18 mae(x,y,z)=(0.373, 0.131, 0.031) | aligned w7_25 mae_z=0.025
-2. fc_off_no_gate | aligned_score=0.864 | aligned w10_18 mae(x,y,z)=(0.723, 0.077, 0.032) | aligned w7_25 mae_z=0.032
-3. fc_small_dt_no_gate | aligned_score=0.940 | aligned w10_18 mae(x,y,z)=(0.550, 0.328, 0.036) | aligned w7_25 mae_z=0.025

@@ -1,5 +1,0 @@
-gps_velocity_variance_scale=0.0
-var_gps_x=0.12
-var_gps_y=0.12
-var_imu_x=3.0
-var_imu_y=3.0

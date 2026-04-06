@@ -57,7 +57,7 @@ The first serious estimator problem was the `z` axis. Early runs showed that the
 - barometer readings contained a persistent bias,
 - simple variance tuning alone could improve one time window while still failing later.
 
-This can be seen in the early sweep [`tmp/proj2_param_sweeps/run1/summary.txt`](../tmp/proj2_param_sweeps/run1/summary.txt):
+This can be seen in an early sweep summary that compared only variance retuning:
 
 | Case | aligned score | aligned MAE `(x, y, z)` | aligned `w7_25` `mae_z` |
 | --- | ---: | --- | ---: |
@@ -243,7 +243,7 @@ The final estimator parameters in [`proj2.yaml`](../src/ee4308_bringup/params/pr
 
 ### 5.1 Pseudo-velocity ablation
 
-The summary in [`tmp/proj2_param_sweeps/xy_logic_run2/summary.txt`](../tmp/proj2_param_sweeps/xy_logic_run2/summary.txt) is:
+One pseudo-velocity ablation summary was:
 
 | Case | aligned score | aligned MAE `(x, y, z)` |
 | --- | ---: | --- |
@@ -260,7 +260,7 @@ Interpretation:
 
 ### 5.2 Soft-gating rejection
 
-The summary in [`tmp/proj2_param_sweeps/gating_compare1/summary.txt`](../tmp/proj2_param_sweeps/gating_compare1/summary.txt) is:
+One soft-gating ablation summary was:
 
 | Case | aligned score | aligned MAE `(x, y, z)` |
 | --- | ---: | --- |
@@ -272,7 +272,7 @@ This is a useful negative result. The gating logic did not improve the estimator
 
 ### 5.3 Forward-compensation ablation
 
-The summary in [`tmp/proj2_param_sweeps/forward_comp_compare2/summary.txt`](../tmp/proj2_param_sweeps/forward_comp_compare2/summary.txt) is:
+One forward-compensation ablation summary was:
 
 | Case | aligned score | aligned MAE `(x, y, z)` |
 | --- | ---: | --- |
@@ -289,7 +289,7 @@ The reason is straightforward: if the measurement is slightly old, correcting at
 
 ### 5.4 Final planar-parameter sweep
 
-The main sweep for `var_gps_x/y` and pseudo-velocity logic is [`tmp/proj2_param_sweeps/vel_fix_run2/summary.txt`](../tmp/proj2_param_sweeps/vel_fix_run2/summary.txt):
+The main planar sweep for `var_gps_x/y` and pseudo-velocity logic gave:
 
 | Case | aligned score | aligned MAE `(x, y, z)` |
 | --- | ---: | --- |
@@ -310,7 +310,7 @@ Lower GPS variance could improve one axis in one run, but the overall result was
 
 ### 5.5 Repeatability matters
 
-The repeated-run check in [`tmp/proj2_param_sweeps/stability_check/summary.txt`](../tmp/proj2_param_sweeps/stability_check/summary.txt) shows:
+The repeated-run check shows:
 
 | Case | aligned score |
 | --- | ---: |
@@ -320,7 +320,7 @@ The repeated-run check in [`tmp/proj2_param_sweeps/stability_check/summary.txt`]
 
 The spread is large enough that choosing parameters from one lucky run would be bad experimental practice.
 
-We therefore compared `var_imu_x = var_imu_y` using repeated runs in [`tmp/proj2_param_sweeps/imu_sweep_b/summary.txt`](../tmp/proj2_param_sweeps/imu_sweep_b/summary.txt):
+We therefore compared `var_imu_x = var_imu_y` using repeated runs:
 
 | IMU variance | scores | median | population std |
 | --- | --- | ---: | ---: |
@@ -334,7 +334,7 @@ This is exactly the kind of result the report should emphasize. `3.0` produced o
 
 ### 6.1 Why `full_check_gui_04` is the final baseline run
 
-The earlier run [`full_check_gui_03`](../tmp/proj2_runs/full_check_gui_03) was useful, but it only logged `150 s` and stopped while the vehicle was still descending. The new run [`full_check_gui_04`](../tmp/proj2_runs/full_check_gui_04) lasts `200 s`, covers the full landing, and keeps recording after touchdown. This makes it more suitable as the final end-to-end evidence.
+An earlier `150 s` run was useful, but it stopped while the vehicle was still descending. The new run [`full_check_gui_04`](../tmp/proj2_runs/full_check_gui_04) lasts `200 s`, covers the full landing, and keeps recording after touchdown. This makes it more suitable as the final end-to-end evidence.
 
 One important caveat: the `gui_04` averages are not directly comparable with `gui_03` on a one-number basis, because `gui_04` includes a long post-touchdown rest period. We therefore use `gui_04` mainly to show complete mission execution and post-landing estimator stability, not to claim an unfair like-for-like numerical win.
 

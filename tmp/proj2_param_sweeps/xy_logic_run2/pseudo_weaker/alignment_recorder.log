@@ -1,3 +1,0 @@
-[INFO] [1775366268.371899700] [proj2_drone_alignment_recorder]: Started aligned CSV recording at est stamp 0.020s for 40.0s of estimator data.
-[INFO] [1775366308.534739575] [proj2_drone_alignment_recorder]: Reached requested duration (40.0s). Finishing recorder.
-[INFO] [1775366308.534978261] [proj2_drone_alignment_recorder]: Wrote aligned estimate/ground-truth CSV to /ws/ee4308/tmp/proj2_param_sweeps/xy_logic_run2/pseudo_weaker/aligned_pose_error.csv

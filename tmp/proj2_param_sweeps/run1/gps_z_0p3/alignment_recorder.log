@@ -1,3 +1,0 @@
-[INFO] [1775318049.929712232] [proj2_drone_alignment_recorder]: Started aligned CSV recording at est stamp 0.040s for 40.0s of estimator data.
-[INFO] [1775318090.080913652] [proj2_drone_alignment_recorder]: Reached requested duration (40.0s). Finishing recorder.
-[INFO] [1775318090.081302253] [proj2_drone_alignment_recorder]: Wrote aligned estimate/ground-truth CSV to /ws/ee4308/tmp/proj2_param_sweeps/run1/gps_z_0p3/aligned_pose_error.csv

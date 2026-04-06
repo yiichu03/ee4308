@@ -1,6 +1,13 @@
 build/
 install/
 log/
-.vscode/browse.vc.db
-.vscode/browse.vc.db-shm
-.vscode/browse.vc.db-wal
+.vscode/
+.claude/
+docs_claude/
+__pycache__/
+*.pyc
+tmp/**
+!tmp/
+!tmp/proj2_runs/
+!tmp/proj2_runs/full_check_gui_04/
+!tmp/proj2_runs/full_check_gui_04/**

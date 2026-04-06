@@ -1,3 +1,0 @@
-1. gating_off | aligned_score=0.634 | aligned w10_18 mae(x,y,z)=(0.491, 0.101, 0.020) | aligned w7_25 mae_z=0.022
-2. gating_default | aligned_score=0.750 | aligned w10_18 mae(x,y,z)=(0.470, 0.233, 0.023) | aligned w7_25 mae_z=0.025
-3. gating_tighter | aligned_score=2.413 | aligned w10_18 mae(x,y,z)=(1.975, 0.392, 0.020) | aligned w7_25 mae_z=0.025

@@ -1,7 +1,0 @@
-baro_max_innovation=1.0
-baro_max_sigma=4.0
-gps_position_max_innovation_xy=1.0
-gps_position_max_innovation_z=1.5
-gps_position_max_sigma=4.0
-magnet_max_innovation=0.9
-magnet_max_sigma=4.0

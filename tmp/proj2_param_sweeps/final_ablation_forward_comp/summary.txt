@@ -1,2 +1,0 @@
-1. baseline | aligned_score=0.475 | aligned w10_18 mae(x,y,z)=(0.307, 0.134, 0.017) | aligned w7_25 mae_z=0.018
-2. no_forward_comp | aligned_score=0.634 | aligned w10_18 mae(x,y,z)=(0.509, 0.093, 0.014) | aligned w7_25 mae_z=0.018

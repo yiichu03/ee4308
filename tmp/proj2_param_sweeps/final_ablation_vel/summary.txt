@@ -1,2 +1,0 @@
-1. baseline | aligned_score=0.604 | aligned w10_18 mae(x,y,z)=(0.463, 0.085, 0.030) | aligned w7_25 mae_z=0.026
-2. no_gps_vel | aligned_score=0.629 | aligned w10_18 mae(x,y,z)=(0.441, 0.134, 0.031) | aligned w7_25 mae_z=0.023
