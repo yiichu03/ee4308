@@ -74,7 +74,7 @@ def main() -> int:
     parser.add_argument(
         "--duration",
         type=float,
-        default=150.0,
+        default=200.0,
         help=(
             "Recording duration in seconds. "
             "When positive, the script auto-stops the simulation after the recorder finishes. "

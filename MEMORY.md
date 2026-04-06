@@ -215,11 +215,45 @@ yaw_vel: -0.3
 - `z` 和 `yaw` 仍然足够好，不再是主要问题
 - 当前最值得在报告里强调的仍然是平面 lag 的结构性改进与实验论证
 
+### `full_check_gui_04`
+
+目录：
+
+- [full_check_gui_04](/home/liuyi/projects/ee4308_proj2/tmp/proj2_runs/full_check_gui_04)
+
+结果：
+
+- [summary.txt](/home/liuyi/projects/ee4308_proj2/tmp/proj2_runs/full_check_gui_04/plots/summary.txt)
+- [trajectory_3d.png](/home/liuyi/projects/ee4308_proj2/tmp/proj2_runs/full_check_gui_04/plots/trajectory_3d.png)
+- [position_vs_time.png](/home/liuyi/projects/ee4308_proj2/tmp/proj2_runs/full_check_gui_04/plots/position_vs_time.png)
+- [error_vs_time.png](/home/liuyi/projects/ee4308_proj2/tmp/proj2_runs/full_check_gui_04/plots/error_vs_time.png)
+
+关键数值：
+
+- `x MAE = 0.254 m`
+- `y MAE = 0.301 m`
+- `z MAE = 0.020 m`
+- `yaw MAE = 0.00394 rad`
+
+补充观察：
+
+- `drone_plan.csv` 显示约 `121.7 s` 进入 `LANDING`
+- true `z <= 0.10 m` 约在 `145.3 s`
+- 估计 `z <= 0.10 m` 约在 `145.4 s`
+- 之后一直记录到 `200 s`，可用于观察 post-touchdown 稳定性
+
+判断：
+
+- 这是当前最适合放进报告的最终 baseline run，因为它覆盖了完整 landing 和落地后静止段
+- `z` 和 `yaw` 已经非常好
+- 剩余主要问题仍然是平面 `x/y` 偏差
+- 由于 `gui_04` 比 `gui_03` 多出较长的落地后静止窗口，二者整体 MAE 不应简单做“一组数字优劣”的直接比较
+
 ---
 
 ## 7. 用于报告的完整运行与后续建议
 
-`full_check_gui_03` 已完成并完成分析，当前可以把它作为报告中的最终 baseline run。
+`full_check_gui_04` 已完成并完成分析，当前应把它作为报告中的最终 baseline run。
 
 对应命令是：
 
@@ -228,8 +262,9 @@ source /opt/ros/jazzy/setup.bash
 cd /ws/ee4308
 source install/setup.bash
 python3 tools/run_proj2_full_check.py \
-  --run-name full_check_gui_03 \
+  --run-name full_check_gui_04 \
   --param-file proj2 \
+  --duration 200 \
   --record-plan
 ```
 
@@ -249,21 +284,22 @@ python3 tools/run_proj2_full_check.py \
 
 输出目录应为：
 
-- [full_check_gui_03](/home/liuyi/projects/ee4308_proj2/tmp/proj2_runs/full_check_gui_03)
+- [full_check_gui_04](/home/liuyi/projects/ee4308_proj2/tmp/proj2_runs/full_check_gui_04)
 
 优先引用这些文件：
 
-- [summary.txt](/home/liuyi/projects/ee4308_proj2/tmp/proj2_runs/full_check_gui_03/plots/summary.txt)
-- [trajectory_3d.png](/home/liuyi/projects/ee4308_proj2/tmp/proj2_runs/full_check_gui_03/plots/trajectory_3d.png)
-- [position_vs_time.png](/home/liuyi/projects/ee4308_proj2/tmp/proj2_runs/full_check_gui_03/plots/position_vs_time.png)
-- [error_vs_time.png](/home/liuyi/projects/ee4308_proj2/tmp/proj2_runs/full_check_gui_03/plots/error_vs_time.png)
-- [drone_plan.csv](/home/liuyi/projects/ee4308_proj2/tmp/proj2_runs/full_check_gui_03/drone_plan.csv)
+- [summary.txt](/home/liuyi/projects/ee4308_proj2/tmp/proj2_runs/full_check_gui_04/plots/summary.txt)
+- [trajectory_3d.png](/home/liuyi/projects/ee4308_proj2/tmp/proj2_runs/full_check_gui_04/plots/trajectory_3d.png)
+- [position_vs_time.png](/home/liuyi/projects/ee4308_proj2/tmp/proj2_runs/full_check_gui_04/plots/position_vs_time.png)
+- [error_vs_time.png](/home/liuyi/projects/ee4308_proj2/tmp/proj2_runs/full_check_gui_04/plots/error_vs_time.png)
+- [drone_plan.csv](/home/liuyi/projects/ee4308_proj2/tmp/proj2_runs/full_check_gui_04/drone_plan.csv)
 
 重点判断：
 
-- 最终 baseline 是否完成完整 cycle 并进入 landing
-- `x/y` 是否维持在“可接受且可解释”的误差范围
+- 最终 baseline 是否完整 landing 并在落地后保持稳定
+- `x/y` 是否仍然是主导误差项
 - `z/yaw` 是否继续保持明显优于平面方向
+- 报告里是否明确说明 `gui_04` 和 `gui_03` 的统计窗口不同
 
 当前报告草稿可直接从这里继续改：
 
