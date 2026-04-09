@@ -34,7 +34,7 @@ This draft only covers that estimator work. The full project still uses the inte
 - how the final parameters were chosen,
 - how the final estimator behaved in a complete mission run.
 
-This structure matches the teaching preference stated in [`email.md`](../docs/email.md): explain why and how each change improves the system, support tuning with deliberate experiments, and include failed attempts when they are informative.
+This structure matches the teaching preference stated in [`email.md`](email.md): explain why and how each change improves the system, support tuning with deliberate experiments, and include failed attempts when they are informative.
 
 ## 2. Baseline Estimator and Failure Analysis
 

@@ -27,8 +27,8 @@
   - [record_drone_plan.py](/home/liuyi/projects/ee4308_proj2/tools/record_drone_plan.py)
   - [plot_drone_bag.py](/home/liuyi/projects/ee4308_proj2/tools/plot_drone_bag.py)
 - 最终报告材料：
-  - [proj2_report_draft.md](/home/liuyi/projects/ee4308_proj2/docs/proj2_report_draft.md)
-  - [estimator_plan_cn.md](/home/liuyi/projects/ee4308_proj2/docs/estimator_plan_cn.md)
+  - [proj2_report_draft.md](/home/liuyi/projects/ee4308_proj2/docs/notes/proj2_report_draft.md)
+  - [estimator_plan_cn.md](/home/liuyi/projects/ee4308_proj2/docs/notes/estimator_plan_cn.md)
 
 ## Final Evidence
 
@@ -43,6 +43,6 @@
 
 ## Notes
 
-- 最终 baseline 结论以 [proj2.yaml](/home/liuyi/projects/ee4308_proj2/src/ee4308_bringup/params/proj2.yaml) 和 [proj2_report_draft.md](/home/liuyi/projects/ee4308_proj2/docs/proj2_report_draft.md) 为准。
+- 最终 baseline 结论以 [proj2.yaml](/home/liuyi/projects/ee4308_proj2/src/ee4308_bringup/params/proj2.yaml) 和 [proj2_report_draft.md](/home/liuyi/projects/ee4308_proj2/docs/notes/proj2_report_draft.md) 为准。
 - `proj2_gt.yaml` 仅用于隔离 `behavior/controller` 与 estimator 问题。
 - 清理版仓库的目标是便于队友阅读，不是保存完整调参历史。

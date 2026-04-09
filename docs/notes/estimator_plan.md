@@ -32,7 +32,7 @@ This matches the handout statement that `use_ground_truth` is useful to troubles
 
 ## 2. What the teacher is likely to care about
 
-From `docs/email.md`, the teacher is not only looking for code that works. The stronger submission will:
+From `docs/notes/email.md`, the teacher is not only looking for code that works. The stronger submission will:
 
 - include equations where possible
 - explain why and how a change improves performance

@@ -298,7 +298,7 @@ For lab 2, the relevant matrices are
 You may face some difficulties with the matrix multiplications in `Eigen` if you are unfamiliar with it. 
 Some calculations can be in scalar form where `double` can be used, particularly for the innovation covariance. 
 As such, `Pz_(0, 0)` can be used to extract the element from the first row and first column if it is easier for you to code this way. 
-Otherwise, make use of the `.transpose()` or `.inverse()` methods of each `Eigen` matrix. See [tips.md](tips.md).
+Otherwise, make use of the `.transpose()` or `.inverse()` methods of each `Eigen` matrix. See [tips.md](notes/tips.md).
 
 In addition, please find a way to determine the value of $\sigma_{snr,z}^2$. 
 

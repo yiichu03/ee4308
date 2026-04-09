@@ -156,7 +156,7 @@
 这样写的好处是：
 
 - 与 `proj2.md` 的 estimator 要求直接对应；
-- 与老师在 [email.md](/home/liuyi/projects/ee4308_proj2/docs/email.md) 里强调的“写 why / how、给 equations、说明调参理由”一致；
+- 与老师在 [email.md](/home/liuyi/projects/ee4308_proj2/docs/notes/email.md) 里强调的“写 why / how、给 equations、说明调参理由”一致；
 - 不会因为写了未实现内容而被扣分。
 
 ## 7. 2026-04-07 报告可直接使用的实验对比

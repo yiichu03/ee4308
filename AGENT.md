@@ -4,4 +4,4 @@
 - Use the repo-local [tmp](/home/liuyi/projects/ee4308_proj2/tmp) directory for bags, plots, logs, and sweep artifacts.
 - When adding commands to docs or scripts, prefer paths like `tmp/proj2_run1`, `tmp/proj2_plots`, and `tmp/proj2_sweeps/...`.
 - If a comparison or sweep experiment is expected to run for a long time, prefer giving the user the exact command to run locally instead of running the long experiment here.
-- Record substantive estimator/debugging progress, experiment rationale, and conclusions in [docs/estimator_plan_cn.md](/home/liuyi/projects/ee4308_proj2/docs/estimator_plan_cn.md) as the work evolves.
+- Record substantive estimator/debugging progress, experiment rationale, and conclusions in [docs/notes/estimator_plan_cn.md](/home/liuyi/projects/ee4308_proj2/docs/notes/estimator_plan_cn.md) as the work evolves.

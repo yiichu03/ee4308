@@ -14,3 +14,9 @@ tmp/**
 !tmp/proj2_runs/full_check_gui_04_1/
 !tmp/proj2_runs/full_check_gui_04_1/**
 submission/
+docs/*.aux
+docs/*.fdb_latexmk
+docs/*.fls
+docs/*.log
+docs/*.out
+docs/*.synctex.gz
