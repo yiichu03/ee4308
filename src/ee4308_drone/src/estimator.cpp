@@ -144,7 +144,7 @@ namespace ee4308::drone
             "true_odom", qos, std::bind(&Estimator::callbackSubTrueOdom_, this, std::placeholders::_1)); // ground truth in sim.
         this->sub_gps_ = this->create_subscription<sensor_msgs::msg::NavSatFix>(
             "fix", qos, std::bind(&Estimator::callbackSubGPS_, this, std::placeholders::_1));
-        this->sub_sonar_ = this->create_subscription<sensor_msgs::msg::LaserScan>( // gz has no sonar implementation. laserscan for quick hack.
+        this->sub_sonar_ = this->create_subscription<sensor_msgs::msg::LaserScan>( // In this project setup, Gazebo publishes the downward range reading as LaserScan, so it is used for the sonar correction.
             "sonar", qos, std::bind(&Estimator::callbackSubSonar_, this, std::placeholders::_1));
         this->sub_magnetic_ = this->create_subscription<sensor_msgs::msg::MagneticField>(
             "magnetic", qos, std::bind(&Estimator::callbackSubMagnetic_, this, std::placeholders::_1));

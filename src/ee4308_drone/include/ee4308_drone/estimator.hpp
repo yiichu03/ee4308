@@ -14,7 +14,7 @@
 #include "sensor_msgs/msg/magnetic_field.hpp" // magnetometer
 #include "sensor_msgs/msg/imu.hpp"
 #include "sensor_msgs/msg/nav_sat_fix.hpp" // gps
-#include "sensor_msgs/msg/laser_scan.hpp"  // sonar (gz has no sonar implementation. laserscan for quick hack.)
+#include "sensor_msgs/msg/laser_scan.hpp"  // In this project setup, Gazebo publishes the downward range reading as LaserScan, so it is used for the sonar correction.
 #include "eigen3/Eigen/Dense"
 #include "ee4308_drone/core.hpp"
 

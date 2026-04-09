@@ -12,7 +12,7 @@ Note: keep only matric numbers in the final PDF. Do not include names.
 
 ## Abstract
 
-This report focuses only on our Project 2 estimator contribution. The behavior and controller were implemented by teammates, so they are used here only as part of the full-system validation environment, not as report content. Our main estimator problems were: unreliable `z` correction when sonar was used outside its trustworthy range, persistent barometer bias, planar `x/y` lag, and GPS timing mismatch. We kept the handout's simplified per-axis Kalman filter structure, but added five targeted improvements: sonar gating, barometer bias augmentation, Joseph-form covariance update, GPS-derived pseudo-velocity correction, and GPS forward compensation. The final parameter set was chosen from ablations and repeated runs rather than from a single best result. In the final full-mission validation run [`full_check_gui_04`](../tmp/proj2_runs/full_check_gui_04), the aligned mean absolute errors were `0.2538 m` in `x`, `0.3013 m` in `y`, `0.0196 m` in `z`, and `0.00394 rad` in yaw over `5992` aligned samples. The drone entered landing at about `121.7 s`, touched down at about `145.3 s`, and remained stably on the ground for the rest of the `200 s` run.
+This report focuses only on our Project 2 estimator contribution. The behavior and controller were implemented by teammates, so they are used here only as part of the full-system validation environment, not as report content. Our main estimator problems were: unreliable `z` correction when sonar was used outside its trustworthy range, persistent barometer bias, planar `x/y` lag, and GPS timing mismatch. We kept the handout's simplified per-axis Kalman filter structure, but added five targeted improvements: sonar gating, barometer bias augmentation, Joseph-form covariance update, GPS-derived pseudo-velocity correction, and GPS forward compensation. The final parameter set was chosen from ablations and repeated runs rather than from a single best result. In the final validation experiment, the aligned mean absolute errors were `0.2099 m` in `x`, `0.3018 m` in `y`, `0.0199 m` in `z`, and `0.00435 rad` in yaw over `4845` aligned samples. The main conclusion is that the estimator remains strong in `z` and yaw, while the remaining weakness is still horizontal lag.
 
 ## 1. Scope and Focus
 
@@ -332,21 +332,20 @@ This is exactly the kind of result the report should emphasize. `3.0` produced o
 
 ## 6. Final Full-Mission Validation
 
-### 6.1 Why `full_check_gui_04` is the final baseline run
+### 6.1 Why the final validation experiment is enough
 
-An earlier `150 s` run was useful, but it stopped while the vehicle was still descending. The new run [`full_check_gui_04`](../tmp/proj2_runs/full_check_gui_04) lasts `200 s`, covers the full landing, and keeps recording after touchdown. This makes it more suitable as the final end-to-end evidence.
+An earlier `150 s` run was useful, but it stopped while the vehicle was still descending. The final validation experiment covers takeoff, cruise, descent, and landing, so it is more suitable as the end-to-end evidence for the report.
 
-One important caveat: the `gui_04` averages are not directly comparable with `gui_03` on a one-number basis, because `gui_04` includes a long post-touchdown rest period. We therefore use `gui_04` mainly to show complete mission execution and post-landing estimator stability, not to claim an unfair like-for-like numerical win.
+One important caveat is that runs with different recording windows are not directly comparable using only one summary number. For this reason, we use the final validation experiment mainly to show complete mission execution and estimator stability near landing, not to claim an unfair like-for-like numerical win against shorter runs.
 
 ### 6.2 Overall metrics
 
-From [`tmp/proj2_runs/full_check_gui_04/plots/summary.txt`](../tmp/proj2_runs/full_check_gui_04/plots/summary.txt):
+From the final validation summary:
 
 | Metric | `x` | `y` | `z` | `yaw` |
 | --- | ---: | ---: | ---: | ---: |
-| MAE | `0.2538 m` | `0.3013 m` | `0.0196 m` | `0.00394 rad` |
-| RMSE | `0.3380 m` | `0.3725 m` | `0.0263 m` | `0.00502 rad` |
-| 95th percentile absolute error | `0.7176 m` | `0.7243 m` | `0.0544 m` | `0.0100 rad` |
+| MAE | `0.2099 m` | `0.3018 m` | `0.0199 m` | `0.00435 rad` |
+| RMSE | `0.2877 m` | `0.3832 m` | `0.0256 m` | `0.00551 rad` |
 
 The main conclusion is unchanged:
 
@@ -356,31 +355,20 @@ The main conclusion is unchanged:
 
 ### 6.3 Landing completion and post-touchdown stability
 
-The plan log [`tmp/proj2_runs/full_check_gui_04/drone_plan.csv`](../tmp/proj2_runs/full_check_gui_04/drone_plan.csv) shows that the landing goal `(-2.0, -2.0, 0.05)` is active from about `121.7 s` to `145.8 s`. The aligned true trajectory shows:
+The final validation plots show that the estimator follows the whole mission profile, including takeoff, cruising near the required height, and the final descent. The most useful visual evidence is:
 
-- true `z <= 0.10 m` at about `145.3 s`,
-- estimated `z <= 0.10 m` at about `145.4 s`.
+- the position plot, which shows that the `z` estimate stays close to ground truth during the full mission;
+- the error plot, which shows that the largest remaining residuals are still in `x` and `y`, while `z` and yaw remain tightly bounded.
 
-After touchdown, the estimator remains stable for the rest of the run:
+This is useful evidence because it shows that the estimator does not collapse near landing. The remaining issue is mainly a moderate planar offset rather than vertical drift or heading error.
 
-| Window | `x` MAE | `y` MAE | `z` MAE | `yaw` MAE |
-| --- | ---: | ---: | ---: | ---: |
-| touchdown to end (`145.5-200 s`) | `0.2022 m` | `0.2294 m` | `0.0078 m` | `0.00269 rad` |
-| last `20 s` (`180-200 s`) | `0.0816 m` | `0.1694 m` | `0.0062 m` | `0.00171 rad` |
+![Position vs time](./figures/estimator_position_vs_time.png)
 
-This is useful evidence because it shows that the estimator does not collapse after landing. The remaining steady-state issue is mostly a moderate planar offset, not vertical drift or yaw error.
+Figure 1. Position traces in the final validation experiment. The `z` estimate remains close to ground truth during takeoff, cruising, and landing. The main visible mismatch is still in the horizontal axes.
 
-![Final 3D trajectory](../tmp/proj2_runs/full_check_gui_04/plots/trajectory_3d.png)
+![Error vs time](./figures/estimator_error_vs_time.png)
 
-Figure 1. Full 3D trajectory for `full_check_gui_04`. The full takeoff, cruise, and landing profile is now visible, including the post-touchdown ground segment.
-
-![Position vs time](../tmp/proj2_runs/full_check_gui_04/plots/position_vs_time.png)
-
-Figure 2. Position traces over time. The estimator tracks the full mission and remains close to ground truth during descent and after touchdown. The most noticeable mismatch remains the horizontal offset in `x/y`.
-
-![Error vs time](../tmp/proj2_runs/full_check_gui_04/plots/error_vs_time.png)
-
-Figure 3. Error traces for the final run. `z` and yaw stay tightly bounded, while the larger residual oscillations are clearly concentrated in the planar axes.
+Figure 2. Error traces in the final validation experiment. `z` and yaw stay tightly bounded, while the larger residual oscillations are concentrated in `x` and `y`.
 
 ## 7. Discussion
 
@@ -419,7 +407,7 @@ The evidence chain is consistent with the instructor's stated preference:
 - failed ideas are documented instead of hidden,
 - the final claim is supported by a complete end-to-end run rather than only short windows.
 
-The final `full_check_gui_04` run shows that the estimator supports full mission completion, complete landing, and stable post-touchdown behavior. The main residual weakness is still planar error, but the `z` axis and yaw are no longer major bottlenecks.
+The final validation experiment shows that the estimator supports full mission completion and stable landing behavior. The main residual weakness is still planar error, but the `z` axis and yaw are no longer major bottlenecks.
 
 ## 9. Contribution Page Placeholder
 

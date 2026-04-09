@@ -11,3 +11,6 @@ tmp/**
 !tmp/proj2_runs/
 !tmp/proj2_runs/full_check_gui_04/
 !tmp/proj2_runs/full_check_gui_04/**
+!tmp/proj2_runs/full_check_gui_04_1/
+!tmp/proj2_runs/full_check_gui_04_1/**
+submission/
